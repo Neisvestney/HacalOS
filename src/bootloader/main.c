@@ -4,17 +4,11 @@
 #include <elf.h>
 #include "../gnu-efi/inc/efi.h"
 #include "../gnu-efi/inc/efilib.h"
+#include "../shared/kernelentry.h"
 
 typedef unsigned long long size_t;
 
-typedef struct {
-    void* BaseAddress;
-    size_t BufferSize;
-    unsigned int Width;
-    unsigned int Height;
-    unsigned int PixelsPerScanline;
-} Framebuffer;
-Framebuffer framebuffer;
+FRAMEBUFFER framebuffer;
 
 EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable){
     EFI_FILE* LoadedFile;
@@ -34,7 +28,32 @@ EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EF
         return NULL;
     }
     return LoadedFile;
+}
 
+PSF1_FONT* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
+    EFI_FILE* font = LoadFile(Directory, Path, ImageHandle, SystemTable);
+    if (font == NULL) return NULL;
+
+    PSF1_HEADER* fontHeader;
+    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(PSF1_HEADER), (void**)&fontHeader);
+    UINTN size = sizeof(PSF1_HEADER);
+    uefi_call_wrapper(font->Read, 3, font, &size, fontHeader);
+    if (fontHeader->Magic[0] != PSF1_MAGIC0 || fontHeader->Magic[1] != PSF1_MAGIC1) return NULL;
+
+    UINTN glyphBufferSize = fontHeader->CharSize * 256;
+    if (fontHeader->Mode == 1) glyphBufferSize = fontHeader->CharSize * 512;
+
+    void* glyphBuffer;
+    uefi_call_wrapper(font->SetPosition, 2, font, sizeof(PSF1_HEADER));
+    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, glyphBufferSize, (void**)&glyphBuffer);
+    uefi_call_wrapper(font->Read, 3, font, &glyphBufferSize, glyphBuffer);
+
+    PSF1_FONT* finishedFont;
+    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(PSF1_FONT), (void**)&finishedFont);
+    finishedFont->PSF1Header = fontHeader;
+    finishedFont->GlyphBuffer = glyphBuffer;
+
+    return finishedFont;
 }
 
 int memcmp(const void* aptr, const void* bptr, size_t n){
@@ -49,18 +68,19 @@ int memcmp(const void* aptr, const void* bptr, size_t n){
 EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
     InitializeLib(ImageHandle, SystemTable);
-    Print(L"Loading ModuletOS Kernel");
 
     ST = SystemTable;
 
-    // GOP Setup
+    //#region GOP Setup
+    Print(L"(Bootloader) Gop setup");
+
     EFI_STATUS status;
     EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 
     status = uefi_call_wrapper(BS->LocateProtocol, 3, &gopGuid, NULL, (void**)&gop);
     if(EFI_ERROR(status))
-        Print(L"Unable to locate GOP\n");
+        Print(L" [WARN] Unable to locate GOP");
 
     EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
     UINTN SizeOfInfo, numModes, nativeMode;
@@ -70,7 +90,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     if (status == EFI_NOT_STARTED)
         status = uefi_call_wrapper(gop->SetMode, 2, gop, 0);
     if(EFI_ERROR(status)) {
-        Print(L"Unable to get native mode\n");
+        Print(L" [WARN] Unable to get native mode");
     } else {
         nativeMode = gop->Mode->Mode;
         numModes = gop->Mode->MaxMode;
@@ -93,11 +113,27 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 //        );
 //    }
 
-    // Load Kernel
+    Print(L" [OK]\n");
+    //#endregion
+
+    //#region Load Font
+    Print(L"(Bootloader) Loading Font");
+
+    PSF1_FONT* font = LoadPSF1Font(NULL, L"zap-light16.psf", ImageHandle, SystemTable);
+    if (font == NULL) {
+        Print(L" [ERR]\n");
+    } else {
+        Print(L" [OK]\n");
+    }
+    //#endregion
+
+    //#region Load Kernel
+    Print(L"(Bootloader) Loading ModuletOS Kernel");
+
     EFI_FILE* Kernel = LoadFile(NULL, L"kernel.elf", ImageHandle, SystemTable);
     if (Kernel == NULL){
         Print(L" [ERR]\n");
-        Print(L"Could not load kernel\n");
+        Print(L"(Bootloader) Could not load kernel\n");
         return EFI_LOAD_ERROR;
     }
 
@@ -123,7 +159,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             )
     {
         Print(L" [ERR]\n");
-        Print(L"Kernel format is bad\n");
+        Print(L"(Bootloader) Kernel format is bad\n");
         return EFI_LOAD_ERROR;
     }
 
@@ -145,7 +181,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             {
                 int pages = (phdr->p_memsz + 0x1000 - 1) / 0x1000;
                 Elf64_Addr segment = phdr->p_paddr;
-                SystemTable->BootServices->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
+                uefi_call_wrapper(SystemTable->BootServices->AllocatePages, 4, AllocateAddress, EfiLoaderData, pages, &segment);
 
                 uefi_call_wrapper(Kernel->SetPosition, 2, Kernel, phdr->p_offset);
                 UINTN size = phdr->p_filesz;
@@ -157,11 +193,13 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     Print(L" [OK]\n");
 
-    int (*KernelStart)(Framebuffer*) = ((__attribute__((sysv_abi)) int (*)(Framebuffer*) ) header.e_entry);
+    //#endregion
 
-    int kernelStatus = KernelStart(&framebuffer);
+    int (*KernelStart)(FRAMEBUFFER*, PSF1_FONT*) = ((__attribute__((sysv_abi)) int (*)(FRAMEBUFFER*, PSF1_FONT*) ) header.e_entry);
 
-    Print(L"Kernel status: %d\r\n", kernelStatus);
+    int kernelStatus = KernelStart(&framebuffer, font);
+
+    Print(L"(Bootloader) Kernel status: %d\r\n", kernelStatus);
 
     if (kernelStatus != 1) return EFI_LOAD_ERROR;
 

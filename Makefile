@@ -15,6 +15,7 @@ os.img: loader kernel
 	mmd -i  $(OUT)/os.img ::/EFI/BOOT
 	mcopy -i  $(OUT)/os.img  $(OUT)/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i  $(OUT)/os.img  $(OUT)/kernel.elf ::
+	mcopy -i  $(OUT)/os.img  $(OUT)/zap-light16.psf ::
 
 os.iso: os.img
 	@mkdir -p $(OUT)/iso

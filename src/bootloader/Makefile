@@ -12,7 +12,7 @@ ASFLAGS = -f elf64
 
 all: BOOTX64.EFI
 
-BOOTX64.EFI: $(OBJECTS)
+BOOTX64.EFI: $(OBJECTS) files
 	cd $(OUT) && $(LD) $(LDFLAGS) $(R)../gnu-efi/x86_64/gnuefi/crt0-efi-x86_64.o $(OBJECTS) -o main.so -lgnuefi -lefi
 	objcopy -j .text -j .sdata -j .data -j .dynamic -j .dynsym  -j .rel -j .rela -j .rel.* -j .rela.* -j .reloc --target efi-app-x86_64 --subsystem=10  $(OUT)/main.so  $(OUT)/BOOTX64.EFI
 
@@ -23,6 +23,9 @@ BOOTX64.EFI: $(OBJECTS)
 %.o: %.asm
 	@mkdir -p $(OUT)
 	$(AS) $(ASFLAGS) $< -o $(OUT)/$@
+
+files:
+	cp zap-light16.psf $(OUT)
 
 clean:
 	rm -rf $(OUT)
