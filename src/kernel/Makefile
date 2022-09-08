@@ -16,7 +16,6 @@ OBJS = $(patsubst %.c, $(OUT)/%.o, $(CSRC)) $(patsubst %.asm, $(OUT)/%.o, $(ASSR
 all: kernel.elf
 
 kernel.elf: $(OBJS)
-	@echo ${R}
 	$(LD) $(LDFLAGS) $(OBJS) -o $(OUT)/kernel.elf
 
 $(OUT)/%.o: %.c
