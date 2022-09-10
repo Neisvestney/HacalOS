@@ -8,7 +8,7 @@
 
 typedef unsigned long long size_t;
 
-FRAMEBUFFER framebuffer;
+Framebuffer framebuffer;
 
 EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable){
     EFI_FILE* LoadedFile;
@@ -30,28 +30,28 @@ EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EF
     return LoadedFile;
 }
 
-PSF1_FONT* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
+PSF1Font* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     EFI_FILE* font = LoadFile(Directory, Path, ImageHandle, SystemTable);
     if (font == NULL) return NULL;
 
-    PSF1_HEADER* fontHeader;
-    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(PSF1_HEADER), (void**)&fontHeader);
-    UINTN size = sizeof(PSF1_HEADER);
+    PSF1Header* fontHeader;
+    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(PSF1Header), (void**)&fontHeader);
+    UINTN size = sizeof(PSF1Header);
     uefi_call_wrapper(font->Read, 3, font, &size, fontHeader);
-    if (fontHeader->Magic[0] != PSF1_MAGIC0 || fontHeader->Magic[1] != PSF1_MAGIC1) return NULL;
+    if (fontHeader->magic[0] != PSF1_MAGIC0 || fontHeader->magic[1] != PSF1_MAGIC1) return NULL;
 
-    UINTN glyphBufferSize = fontHeader->CharSize * 256;
-    if (fontHeader->Mode == 1) glyphBufferSize = fontHeader->CharSize * 512;
+    UINTN glyphBufferSize = fontHeader->charSize * 256;
+    if (fontHeader->mode == 1) glyphBufferSize = fontHeader->charSize * 512;
 
     void* glyphBuffer;
-    uefi_call_wrapper(font->SetPosition, 2, font, sizeof(PSF1_HEADER));
+    uefi_call_wrapper(font->SetPosition, 2, font, sizeof(PSF1Header));
     uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, glyphBufferSize, (void**)&glyphBuffer);
     uefi_call_wrapper(font->Read, 3, font, &glyphBufferSize, glyphBuffer);
 
-    PSF1_FONT* finishedFont;
-    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(PSF1_FONT), (void**)&finishedFont);
-    finishedFont->PSF1Header = fontHeader;
-    finishedFont->GlyphBuffer = glyphBuffer;
+    PSF1Font* finishedFont;
+    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(PSF1Font), (void**)&finishedFont);
+    finishedFont->psf1Header = fontHeader;
+    finishedFont->glyphBuffer = glyphBuffer;
 
     return finishedFont;
 }
@@ -96,11 +96,11 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         numModes = gop->Mode->MaxMode;
     }
 
-    framebuffer.BaseAddress = (void*)gop->Mode->FrameBufferBase;
-    framebuffer.BufferSize = gop->Mode->FrameBufferSize;
-    framebuffer.Width = gop->Mode->Info->HorizontalResolution;
-    framebuffer.Height = gop->Mode->Info->VerticalResolution;
-    framebuffer.PixelsPerScanline = gop->Mode->Info->PixelsPerScanLine;
+    framebuffer.baseAddress = (void*)gop->Mode->FrameBufferBase;
+    framebuffer.bufferSize = gop->Mode->FrameBufferSize;
+    framebuffer.width = gop->Mode->Info->HorizontalResolution;
+    framebuffer.height = gop->Mode->Info->VerticalResolution;
+    framebuffer.pixelsPerScanline = gop->Mode->Info->PixelsPerScanLine;
 
 //    for (int i = 0; i < numModes; i++) {
 //        status = uefi_call_wrapper(gop->QueryMode, 4, gop, i, &SizeOfInfo, &info);
@@ -119,7 +119,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     //#region Load Font
     Print(L"(Bootloader) Loading Font");
 
-    PSF1_FONT* font = LoadPSF1Font(NULL, L"zap-light16.psf", ImageHandle, SystemTable);
+    PSF1Font* font = LoadPSF1Font(NULL, L"zap-light16.psf", ImageHandle, SystemTable);
     if (font == NULL) {
         Print(L" [ERR]\n");
     } else {
@@ -195,7 +195,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     //#endregion
 
-    int (*KernelStart)(FRAMEBUFFER*, PSF1_FONT*) = ((__attribute__((sysv_abi)) int (*)(FRAMEBUFFER*, PSF1_FONT*) ) header.e_entry);
+    int (*KernelStart)(Framebuffer*, PSF1Font*) = ((__attribute__((sysv_abi)) int (*)(Framebuffer*, PSF1Font*) ) header.e_entry);
 
     int kernelStatus = KernelStart(&framebuffer, font);
 

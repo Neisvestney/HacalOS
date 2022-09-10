@@ -9,16 +9,16 @@ AS = nasm
 ASFLAGS = -f elf64
 
 
-CSRC = $(wildcard *.c)
+CSRCPP = $(wildcard *.cpp)
 ASSRC = $(wildcard *.asm)
-OBJS = $(patsubst %.c, $(OUT)/%.o, $(CSRC)) $(patsubst %.asm, $(OUT)/%.o, $(ASSRC))
+OBJS = $(patsubst %.cpp, $(OUT)/%.o, $(CSRCPP)) $(patsubst %.asm, $(OUT)/%.o, $(ASSRC))
 
 all: kernel.elf
 
 kernel.elf: $(OBJS)
 	$(LD) $(LDFLAGS) $(OBJS) -o $(OUT)/kernel.elf
 
-$(OUT)/%.o: %.c
+$(OUT)/%.o: %.cpp
 	@mkdir -p $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
