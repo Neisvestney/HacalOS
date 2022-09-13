@@ -1,8 +1,8 @@
 #ifndef MODULETOS_BASICRENDERER_H
 #define MODULETOS_BASICRENDERER_H
 
-#include "../shared/kernelentry.h"
 #include "math.h"
+#include "bootinfo.h"
 
 class BasicRenderer{
 public:

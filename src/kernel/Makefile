@@ -8,10 +8,16 @@ LDFLAGS = -T link.ld -static -Bsymbolic -nostdlib
 AS = nasm
 ASFLAGS = -f elf64
 
-
 CSRCPP = $(wildcard *.cpp)
 ASSRC = $(wildcard *.asm)
 OBJS = $(patsubst %.cpp, $(OUT)/%.o, $(CSRCPP)) $(patsubst %.asm, $(OUT)/%.o, $(ASSRC))
+
+DEBUG = 0
+CC_DEBUG_FLAGS =
+ifeq ($(DEBUG),1)
+	DEBUG = 1
+    CC_DEBUG_FLAGS = -g
+endif
 
 all: kernel.elf
 
@@ -20,7 +26,7 @@ kernel.elf: $(OBJS)
 
 $(OUT)/%.o: %.cpp
 	@mkdir -p $(OUT)
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $(CC_DEBUG_FLAGS) $< -o $@
 
 $(OUT)/%.o: %.asm
 	@mkdir -p $(OUT)

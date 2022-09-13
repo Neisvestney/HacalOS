@@ -24,8 +24,9 @@ BOOTX64.EFI: $(OBJECTS) files
 	@mkdir -p $(OUT)
 	$(AS) $(ASFLAGS) $< -o $(OUT)/$@
 
-files:
+files: zap-light16.psf zap-ext-light16.psf
 	cp zap-light16.psf $(OUT)
+	cp zap-ext-light16.psf $(OUT)
 
 clean:
 	rm -rf $(OUT)

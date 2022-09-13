@@ -4,11 +4,13 @@
 #include <elf.h>
 #include "../gnu-efi/inc/efi.h"
 #include "../gnu-efi/inc/efilib.h"
-#include "../shared/kernelentry.h"
+#include "bootinfo.h"
 
 typedef unsigned long long size_t;
 
 Framebuffer framebuffer;
+MemoryMap memoryMap;
+BootInfo bootInfo;
 
 EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable){
     EFI_FILE* LoadedFile;
@@ -119,7 +121,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     //#region Load Font
     Print(L"(Bootloader) Loading Font");
 
-    PSF1Font* font = LoadPSF1Font(NULL, L"zap-light16.psf", ImageHandle, SystemTable);
+    PSF1Font* font = LoadPSF1Font(NULL, L"zap-ext-light16.psf", ImageHandle, SystemTable);
     if (font == NULL) {
         Print(L" [ERR]\n");
     } else {
@@ -181,7 +183,11 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             {
                 int pages = (phdr->p_memsz + 0x1000 - 1) / 0x1000;
                 Elf64_Addr segment = phdr->p_paddr;
-                uefi_call_wrapper(SystemTable->BootServices->AllocatePages, 4, AllocateAddress, EfiLoaderData, pages, &segment);
+                EFI_STATUS s = uefi_call_wrapper(SystemTable->BootServices->AllocatePages, 4, AllocateAddress, EfiLoaderData, pages, &segment);
+                if (EFI_ERROR(s)) {
+                    Print(L" [FTL]\nError allocating memory for kernel at address from %f KiB to %f KiB\n",segment / (double) 1024, (segment + (pages * 4096)) / (double) 1024);
+                    return EFI_LOAD_ERROR;
+                }
 
                 uefi_call_wrapper(Kernel->SetPosition, 2, Kernel, phdr->p_offset);
                 UINTN size = phdr->p_filesz;
@@ -195,9 +201,30 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     //#endregion
 
-    int (*KernelStart)(Framebuffer*, PSF1Font*) = ((__attribute__((sysv_abi)) int (*)(Framebuffer*, PSF1Font*) ) header.e_entry);
+    //#region Memory Map
+    EFI_MEMORY_DESCRIPTOR* Map = NULL;
+    UINTN MapSize, MapKey;
+    UINTN DescriptorSize;
+    UINT32 DescriptorVersion;
 
-    int kernelStatus = KernelStart(&framebuffer, font);
+    uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
+    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, MapSize, (void**)&Map);
+    uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
+
+    memoryMap.map = Map;
+    memoryMap.mapSize = MapSize;
+    memoryMap.descriptorSize = DescriptorSize;
+    //#endregion
+
+    bootInfo.framebuffer = &framebuffer;
+    bootInfo.psf1Font = font;
+    bootInfo.memoryMap = &memoryMap;
+
+    int (*KernelStart)(BootInfo *) = ((__attribute__((sysv_abi)) int (*)(BootInfo *) ) header.e_entry);
+
+    uefi_call_wrapper(SystemTable->BootServices->ExitBootServices, 2, ImageHandle, MapKey);
+
+    int kernelStatus = KernelStart(&bootInfo);
 
     Print(L"(Bootloader) Kernel status: %d\r\n", kernelStatus);
 

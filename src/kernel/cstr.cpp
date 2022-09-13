@@ -3,7 +3,7 @@
 char uintToStringBuffer[128];
 const char* toString(uint64_t value) {
     uint8_t size = 0;
-    uint16_t sizeTest = value;
+    uint64_t sizeTest = value;
     while (sizeTest / 10 > 0) {
         sizeTest /= 10;
         size++;
@@ -24,7 +24,7 @@ const char* toString(uint64_t value) {
 }
 
 char intToStringBuffer[128];
-const char *toString(int64_t value) {
+const char* toString(int64_t value) {
     uint8_t isNegative = 0;
     if (value < 0) {
         isNegative = 1;

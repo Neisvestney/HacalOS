@@ -3,6 +3,8 @@ ENTRY(kmain)
 
 SECTIONS
 {
+    . = 0x10000;
+    PROVIDE(_kernelStart = .);
 	.text : ALIGN(0x1000)
 	{
 		*(.text)
@@ -20,4 +22,5 @@ SECTIONS
 		*(COMMON)
 		*(.bss)
 	}
+	PROVIDE(_kernelEnd = .);
 }

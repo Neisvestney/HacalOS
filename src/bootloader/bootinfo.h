@@ -1,5 +1,8 @@
-#ifndef MODULETOS_KERNELENTRY_H
-#define MODULETOS_KERNELENTRY_H
+#ifndef MODULETOS_BOOTINFO_H
+#define MODULETOS_BOOTINFO_H
+
+#include "../gnu-efi/inc/efi.h"
+
 typedef struct {
     void* baseAddress;
     unsigned long long bufferSize;
@@ -22,4 +25,15 @@ typedef struct {
     void* glyphBuffer;
 } PSF1Font;
 
-#endif //MODULETOS_KERNELENTRY_H
+typedef struct {
+    EFI_MEMORY_DESCRIPTOR* map;
+    UINTN mapSize;
+    UINTN descriptorSize;
+} MemoryMap;
+
+typedef struct {
+    Framebuffer* framebuffer;
+    PSF1Font* psf1Font;
+    MemoryMap* memoryMap;
+} BootInfo;
+#endif //MODULETOS_BOOTINFO_H
