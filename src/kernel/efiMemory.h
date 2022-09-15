@@ -13,6 +13,12 @@ struct EFI_MEMORY_DESCRIPTOR {
 
 extern const char* EFI_MEMORY_TYPE_STRINGS[];
 
-uint64_t GetMemorySize(EFI_MEMORY_DESCRIPTOR* mMap, uint64_t mMapEntries, uint64_t mMapDescSize);
+struct MemoryMap {
+    EFI_MEMORY_DESCRIPTOR* map;
+    uint64_t mapSize;
+    uint64_t descriptorSize;
+};
+
+uint64_t GetMemorySize(MemoryMap* mMap);
 
 #endif //MODULETOS_EFIMEMORY_H

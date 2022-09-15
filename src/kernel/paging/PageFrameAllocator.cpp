@@ -1,5 +1,7 @@
 #include "PageFrameAllocator.h"
 
+PageFrameAllocator globalPageFrameAllocator;
+
 void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
     if (Initialized) return;
 
@@ -21,13 +23,13 @@ void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
         }
     }
 
-    uint64_t memorySize = GetMemorySize(mMap->map, mMapEntries, mMap->descriptorSize);
+    uint64_t memorySize = GetMemorySize(mMap);
     freeMemory = memorySize;
     uint64_t bitmapSize = memorySize / 4096 / 8 + 1;
 
     InitBitmap(bitmapSize, largestFreeMemSeg);
 
-    LockPages(&PageBitmap, PageBitmap.size/ 4096 + 1);
+    LockPages(&pageBitmap, pageBitmap.size/ 4096 + 1);
 
     for (int i = 0; i < mMapEntries; i++){
         EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
@@ -38,18 +40,18 @@ void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
 }
 
 void PageFrameAllocator::InitBitmap(size_t bitmapSize, void* bufferAddress){
-    PageBitmap.size = bitmapSize;
-    PageBitmap.buffer = (uint8_t*)bufferAddress;
+    pageBitmap.size = bitmapSize;
+    pageBitmap.buffer = (uint8_t*)bufferAddress;
     for (int i = 0; i < bitmapSize; i++){
-        *(uint8_t*)(PageBitmap.buffer + i) = 0;
+        *(uint8_t*)(pageBitmap.buffer + i) = 0;
     }
 }
 
 void* PageFrameAllocator::RequestPage(){
-    for (uint64_t index = 0; index < PageBitmap.size * 8; index++){
-        if (PageBitmap[index]) continue;
-        LockPage((void*)(index * 4096));
-        return (void*)(index * 4096);
+    for (; pageBitmapIndex < pageBitmap.size * 8; pageBitmapIndex++){
+        if (pageBitmap[pageBitmapIndex]) continue;
+        LockPage((void*)(pageBitmapIndex * 4096));
+        return (void*)(pageBitmapIndex * 4096);
     }
 
     return NULL; // Page Frame Swap to file
@@ -57,10 +59,12 @@ void* PageFrameAllocator::RequestPage(){
 
 void PageFrameAllocator::FreePage(void* address){
     uint64_t index = (uint64_t)address / 4096;
-    if (PageBitmap[index] == false) return;
-    PageBitmap.Set(index, false);
-    freeMemory += 4096;
-    usedMemory -= 4096;
+    if (!pageBitmap[index]) return;
+    if (pageBitmap.Set(index, false)){
+        freeMemory += 4096;
+        usedMemory -= 4096;
+        if (pageBitmapIndex > index) pageBitmapIndex = index;
+    }
 }
 
 void PageFrameAllocator::FreePages(void* address, uint64_t pageCount){
@@ -71,10 +75,11 @@ void PageFrameAllocator::FreePages(void* address, uint64_t pageCount){
 
 void PageFrameAllocator::LockPage(void* address){
     uint64_t index = (uint64_t)address / 4096;
-    if (PageBitmap[index] == true) return;
-    PageBitmap.Set(index, true);
-    freeMemory -= 4096;
-    usedMemory += 4096;
+    if (pageBitmap[index]) return;
+    if (pageBitmap.Set(index, true)){
+        freeMemory -= 4096;
+        usedMemory += 4096;
+    }
 }
 
 void PageFrameAllocator::LockPages(void* address, uint64_t pageCount){
@@ -85,10 +90,12 @@ void PageFrameAllocator::LockPages(void* address, uint64_t pageCount){
 
 void PageFrameAllocator::UnreservePage(void* address){
     uint64_t index = (uint64_t)address / 4096;
-    if (PageBitmap[index] == false) return;
-    PageBitmap.Set(index, false);
-    freeMemory += 4096;
-    reservedMemory -= 4096;
+    if (!pageBitmap[index]) return;
+    if (pageBitmap.Set(index, false)){
+        freeMemory += 4096;
+        reservedMemory -= 4096;
+        if (pageBitmapIndex > index) pageBitmapIndex = index;
+    }
 }
 
 void PageFrameAllocator::UnreservePages(void* address, uint64_t pageCount){
@@ -99,10 +106,11 @@ void PageFrameAllocator::UnreservePages(void* address, uint64_t pageCount){
 
 void PageFrameAllocator::ReservePage(void* address){
     uint64_t index = (uint64_t)address / 4096;
-    if (PageBitmap[index] == true) return;
-    PageBitmap.Set(index, true);
-    freeMemory -= 4096;
-    reservedMemory += 4096;
+    if (pageBitmap[index]) return;
+    if (pageBitmap.Set(index, true)){
+        freeMemory -= 4096;
+        reservedMemory += 4096;
+    }
 }
 
 void PageFrameAllocator::ReservePages(void* address, uint64_t pageCount){

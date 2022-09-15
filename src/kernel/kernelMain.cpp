@@ -2,8 +2,10 @@
 #include "BasicRenderer.h"
 #include "cstr.h"
 #include "bootinfo.h"
-#include "efiMemory.h"
-#include "PageFrameAllocator.h"
+#include "paging/PageFrameAllocator.h"
+#include "paging/paging.h"
+#include "paging/PageTableManager.h"
+#include "memory.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -109,12 +111,32 @@ const uint32_t cote[100][100] = {{0xbecfcf, 0xbcced2, 0xbcced2, 0xbed0d4, 0xc0d2
                                {0x64441b, 0x66461d, 0x523109, 0x422603, 0x482c09, 0x2f2417, 0x2c2114, 0x31271b, 0x080002, 0x0e030e, 0x070505, 0x0c0c0a, 0x090909, 0x1c1c1c, 0x070708, 0x191915, 0x414134, 0x615d43, 0x6a664c, 0x7b775d, 0x827e63, 0x8a866c, 0x928b78, 0x948d7a, 0x9f957b, 0xa2997f, 0xa2977f, 0x98876b, 0x987e5a, 0x93794a, 0x8c7243, 0x816138, 0x74542b, 0x704722, 0x6a411c, 0x5e3b18, 0x2f1b0b, 0x180d0a, 0x1b0e01, 0x462e1b, 0x3e240a, 0x3a2208, 0x372714, 0x7d735d, 0x9f9676, 0xb49d74, 0xbe9d6e, 0xb89c6f, 0xb5996f, 0xb0946d, 0xa58966, 0x977d58, 0x9e8c67, 0xa79470, 0xa08f76, 0xa4937b, 0x948a71, 0x8d8574, 0x908780, 0x8f8684, 0x7e7573, 0x826a73, 0x8b737c, 0x8f7e8a, 0x8d7c8b, 0x746673, 0x464146, 0x525952, 0x89968d, 0x99a69c, 0x9daaa1, 0xacb9af, 0xa8b5ae, 0x99a6a1, 0x67736e, 0x292d2b, 0x595d5b, 0x8c9790, 0xa4afa6, 0xa7b4a9, 0xa9b5ad, 0x95a099, 0x7e8089, 0x242630, 0x3a3e3b, 0x5d5c57, 0x361517, 0x3b1818, 0x3b1919, 0x5d3c2b, 0xab845f, 0xaa815d, 0xb18863, 0xad845f, 0xb38a65, 0xad845f, 0xb28863, 0xac835e, 0x66412e, 0x391d0e},
                                {0x58380f, 0x4e3513, 0x3b2200, 0x452906, 0x3f2403, 0x231514, 0x1e110f, 0x1c100d, 0x0c0303, 0x110611, 0x030303, 0x090909, 0x060606, 0x101010, 0x030304, 0x181916, 0x515345, 0x696e5e, 0x757968, 0x848a79, 0x8e9483, 0x979c8d, 0x9ca093, 0xa2a699, 0xacaa9b, 0xadab9c, 0xa9a99a, 0xa49c87, 0x9e8d75, 0x9b8870, 0x8b755b, 0x806846, 0x775f3f, 0x745335, 0x705234, 0x6c5132, 0x392515, 0x0d0303, 0x0c0806, 0x2c1f12, 0x2d200d, 0x312312, 0x4d4031, 0x887f69, 0xa39b7a, 0xbba780, 0xc8a77a, 0xc4a87f, 0xc2a67d, 0xbea27d, 0xab8f6c, 0x997f5d, 0xa99671, 0xb09c79, 0xa8977d, 0xa8977f, 0x9f977d, 0x928e7a, 0x9a918b, 0x908785, 0x7f7674, 0x99828a, 0xa58e97, 0x8f808c, 0x887988, 0x7e717f, 0x3a363b, 0x868f84, 0x99a69d, 0xa1aea5, 0xa4b1a8, 0xa3b0a7, 0xa8b4ae, 0x919e9a, 0x3a4643, 0x2b2f2d, 0x424644, 0x758078, 0x9aa79e, 0xa2b1a8, 0x9ba89f, 0x87938b, 0x53555e, 0x11121b, 0x5a5f5c, 0x565752, 0x3a1a1d, 0x401d1d, 0x391616, 0x694a38, 0xae8760, 0xac835e, 0xaa825d, 0xb08762, 0xb08762, 0xad845f, 0xaf8661, 0xaa815c, 0x8b6450, 0x3b1f10}};
 
-extern "C" int kmain(BootInfo* bootInfo) {
-    PageFrameAllocator pageFrameAllocator;
-    pageFrameAllocator.ReadEFIMemoryMap(bootInfo->memoryMap);
+uint64_t test = 0x1234;
+
+extern "C" int kernelMain(BootInfo* bootInfo) {
+    globalPageFrameAllocator = PageFrameAllocator();
+    globalPageFrameAllocator.ReadEFIMemoryMap(bootInfo->memoryMap);
     uint64_t kernelSize = (uint64_t)&_kernelEnd - (uint64_t)&_kernelStart;
     uint64_t kernelPages = (uint64_t)kernelSize / 4096 + 1;
-    pageFrameAllocator.ReservePages(&_kernelStart, kernelPages);
+    globalPageFrameAllocator.ReservePages(&_kernelStart, kernelPages);
+
+    PageTable* PML4 = (PageTable*)globalPageFrameAllocator.RequestPage();
+    memset(PML4, 0, 0x1000);
+
+    PageTableManager pageTableManager = PageTableManager(PML4);
+
+    for (uint64_t t = 0; t < GetMemorySize(bootInfo->memoryMap); t+= 0x1000){
+        pageTableManager.MapMemory((void*)t, (void*)t);
+    }
+
+    uint64_t fbBase = (uint64_t)bootInfo->framebuffer->baseAddress;
+    uint64_t fbSize = (uint64_t)bootInfo->framebuffer->bufferSize + 0x1000;
+    globalPageFrameAllocator.ReservePages((void*)fbBase, fbSize / 0x1000 + 1);
+    for (uint64_t t = fbBase; t < fbBase + fbSize; t += 4096){
+        pageTableManager.MapMemory((void*)t, (void*)t);
+    }
+
+    asm ("mov %0, %%cr3" : : "r" (PML4)); // Switch to new paging table
 
     BasicRenderer basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
     basicRenderer.point = {8, 110};
@@ -134,31 +156,26 @@ extern "C" int kmain(BootInfo* bootInfo) {
     basicRenderer.Print("Modulet");
     basicRenderer.Printl("OS", 0xdddddd);
 
-    for (int t = 0; t < 20; t++){
-        void* address = pageFrameAllocator.RequestPage();
-        basicRenderer.Printl(toHexString((uint64_t)address));
-    }
-
     basicRenderer.Print("Free memory: ");
-    basicRenderer.Print(toString((double) pageFrameAllocator.GetFreeRAM() / 1024 / 1024));
+    basicRenderer.Print(toString((double) globalPageFrameAllocator.GetFreeRAM() / 1024 / 1024));
     basicRenderer.Printl(" MiB");
 
     basicRenderer.Print("Used memory: ");
-    basicRenderer.Print(toString((double) pageFrameAllocator.GetUsedRAM() / 1024));
+    basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
     basicRenderer.Printl(" KiB");
 
     basicRenderer.Print("Reserved memory: ");
-    basicRenderer.Print(toString((double) pageFrameAllocator.GetReservedRAM() / 1024 / 1024));
+    basicRenderer.Print(toString((double) globalPageFrameAllocator.GetReservedRAM() / 1024 / 1024));
     basicRenderer.Printl(" MiB");
 
-//
-//    for (int i = 0; i < mMapEntries; i++) {
-//        EFI_MEMORY_DESCRIPTOR *desc = (EFI_MEMORY_DESCRIPTOR *) ((uint64_t) bootInfo->memoryMap->map + (i * bootInfo->memoryMap->descriptorSize));
-//        basicRenderer.Print(EFI_MEMORY_TYPE_STRINGS[desc->type], 0xffffff);
-//        basicRenderer.Print(" ");
-//        basicRenderer.Print(toString(desc->numPages * 4096 / 1024), 0xffff00ff);
-//        basicRenderer.Printl(" KB ");
-//    }
+    basicRenderer.Printl(toHexString(test));
+    pageTableManager.MapMemory((void*)0x600000000, (void*)&test);
+    uint64_t* testVirtual = (uint64_t*)0x600000000;
+    basicRenderer.Printl(toHexString(*testVirtual));
+
+    basicRenderer.Print("Used memory: ");
+    basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
+    basicRenderer.Printl(" KiB");
 
     for (;;) {}
 

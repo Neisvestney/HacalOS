@@ -2,14 +2,15 @@
 #define MODULETOS_PAGEFRAMEALLOCATOR_H
 
 #include <stdint.h>
-#include "Bitmap.h"
-#include "efiMemory.h"
-#include "bootinfo.h"
+#include "../Bitmap.h"
+#include "../efiMemory.h"
+#include "../bootinfo.h"
 
 class PageFrameAllocator {
 public:
     void ReadEFIMemoryMap(MemoryMap* mMap);
-    Bitmap PageBitmap;
+    Bitmap pageBitmap;
+    uint64_t pageBitmapIndex {0};
     void FreePage(void* address);
     void FreePages(void* address, uint64_t pageCount);
     void LockPage(void* address);
@@ -31,5 +32,6 @@ private:
     bool Initialized = false;
 };
 
+extern PageFrameAllocator globalPageFrameAllocator;
 
 #endif //MODULETOS_PAGEFRAMEALLOCATOR_H
