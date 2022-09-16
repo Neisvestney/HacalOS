@@ -21,4 +21,6 @@ public:
     void Printl(const char* str,  uint32_t color);
 };
 
+extern BasicRenderer basicRenderer;
+
 #endif //MODULETOS_BASICRENDERER_H

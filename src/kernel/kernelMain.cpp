@@ -6,6 +6,10 @@
 #include "paging/paging.h"
 #include "paging/PageTableManager.h"
 #include "memory.h"
+#include "gdt/gdt.h"
+#include "interrupts/idt.h"
+#include "interrupts/interrupts.h"
+#include "io.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -113,13 +117,23 @@ const uint32_t cote[100][100] = {{0xbecfcf, 0xbcced2, 0xbcced2, 0xbed0d4, 0xc0d2
 
 uint64_t test = 0x1234;
 
+IDTR idtr;
+
 extern "C" int kernelMain(BootInfo* bootInfo) {
+    // GDT
+    GDTDescriptor gdtDescriptor{};
+    gdtDescriptor.Size = sizeof(GDT) - 1;
+    gdtDescriptor.Offset = (uint64_t)&DefaultGDT;
+    LoadGDT(&gdtDescriptor);
+
+    // PageFrameAllocator
     globalPageFrameAllocator = PageFrameAllocator();
     globalPageFrameAllocator.ReadEFIMemoryMap(bootInfo->memoryMap);
     uint64_t kernelSize = (uint64_t)&_kernelEnd - (uint64_t)&_kernelStart;
     uint64_t kernelPages = (uint64_t)kernelSize / 4096 + 1;
     globalPageFrameAllocator.ReservePages(&_kernelStart, kernelPages);
 
+    // Framing
     PageTable* PML4 = (PageTable*)globalPageFrameAllocator.RequestPage();
     memset(PML4, 0, 0x1000);
 
@@ -138,9 +152,49 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     asm ("mov %0, %%cr3" : : "r" (PML4)); // Switch to new paging table
 
-    BasicRenderer basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
+    // Interrupts
+    idtr.Limit = 0x0FFF;
+    idtr.Offset = (uint64_t)globalPageFrameAllocator.RequestPage();
+
+    IDTDescEntry* int_PageFault = (IDTDescEntry*)(idtr.Offset + 0xE * sizeof(IDTDescEntry));
+    int_PageFault->SetOffset((uint64_t)PageFault_Handler);
+    int_PageFault->type_attr = IDT_TA_InterruptGate;
+    int_PageFault->selector = 0x08;
+
+    IDTDescEntry* int_DoubleFault = (IDTDescEntry*)(idtr.Offset + 0x8 * sizeof(IDTDescEntry));
+    int_DoubleFault->SetOffset((uint64_t)DoubleFault_Handler);
+    int_DoubleFault->type_attr = IDT_TA_InterruptGate;
+    int_DoubleFault->selector = 0x08;
+
+    IDTDescEntry* int_GPFault = (IDTDescEntry*)(idtr.Offset + 0xD * sizeof(IDTDescEntry));
+    int_GPFault->SetOffset((uint64_t)GPFault_Handler);
+    int_GPFault->type_attr = IDT_TA_InterruptGate;
+    int_GPFault->selector = 0x08;
+
+    IDTDescEntry* int_Keyboard = (IDTDescEntry*)(idtr.Offset + 0x21 * sizeof(IDTDescEntry));
+    int_Keyboard->SetOffset((uint64_t)KeyboardInt_Handler);
+    int_Keyboard->type_attr = IDT_TA_InterruptGate;
+    int_Keyboard->selector = 0x08;
+
+    IDTDescEntry* int_Syscall = (IDTDescEntry*)(idtr.Offset + 0xAE * sizeof(IDTDescEntry));
+    int_Syscall->SetOffset((uint64_t)SysCall_Handler);
+    int_Syscall->type_attr = IDT_TA_InterruptGate;
+    int_Syscall->selector = 0x08;
+
+    asm ("lidt %0" : : "m" (idtr));
+
+    RemapPIC();
+
+    outb(PIC1_DATA, 0b11111101);
+    outb(PIC2_DATA, 0b11111111);
+
+    asm ("sti");
+
+    // Renderer
+    basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
     basicRenderer.point = {8, 110};
 
+    // Same tests
     for (int x = 0; x < bootInfo->framebuffer->width; ++x) {
         for (int y = 0; y < bootInfo->framebuffer->height; ++y) {
             basicRenderer.PutPixel(x, y, 0x000000);
@@ -172,6 +226,8 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     pageTableManager.MapMemory((void*)0x600000000, (void*)&test);
     uint64_t* testVirtual = (uint64_t*)0x600000000;
     basicRenderer.Printl(toHexString(*testVirtual));
+
+    asm ("int $0xAE");
 
     basicRenderer.Print("Used memory: ");
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
