@@ -1,7 +1,7 @@
 #include "gdt.h"
 
 __attribute__((aligned(0x1000)))
-GDT DefaultGDT = {
+GDT defaultGDT = {
         {0, 0, 0, 0x00, 0x00, 0}, // null
         {0xFFF, 0, 0, 0x9a, 0xF, 0xA, 0}, // kernel code segment
         {0xFFF, 0, 0, 0x92, 0xF, 0xC, 0}, // kernel data segment
@@ -11,13 +11,13 @@ GDT DefaultGDT = {
 };
 
 void GDTSystemEntry::SetBase(uint64_t base) {
-    Base0 = (uint16_t)(base &  0x000000000000ffff);
-    Base1 = (uint8_t)((base &  0x0000000000ff0000) >> 16);
-    Base2 = (uint8_t)((base &  0x00000000ff000000) >> 24);
-    Base3 = (uint32_t)((base & 0xffffffff00000000) >> 32);
+    base0 = (uint16_t)(base & 0x000000000000ffff);
+    base1 = (uint8_t)((base & 0x0000000000ff0000) >> 16);
+    base2 = (uint8_t)((base & 0x00000000ff000000) >> 24);
+    base3 = (uint32_t)((base & 0xffffffff00000000) >> 32);
 }
 
 void GDTSystemEntry::SetLimit(uint32_t limit) {
-    Limit0 = (uint16_t)(limit &  0x0000ffff);
-    Limit1 = (uint8_t)((limit &  0x000f0000) >> 16);
+    limit0 = (uint16_t)(limit & 0x0000ffff);
+    limit1 = (uint8_t)((limit & 0x000f0000) >> 16);
 }

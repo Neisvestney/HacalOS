@@ -125,18 +125,15 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     // GDT
     TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
     memset(tss, 0, 0x1000);
-    uint64_t address = 0;
-    asm volatile ("mov %0, %%rsp": "=r" (address));
-    tss->rsp0 = address;
-    DefaultGDT.TSS.SetBase((uint64_t) tss);
-    DefaultGDT.TSS.SetLimit(sizeof(TSS));
+    UPDATE_TSS(tss, rsp)
+    defaultGDT.tss.SetBase((uint64_t) tss);
+    defaultGDT.tss.SetLimit(sizeof(TSS));
 
     GDTDescriptor gdtDescriptor{};
     gdtDescriptor.Size = sizeof(GDT) - 1;
-    gdtDescriptor.Offset = (uint64_t)&DefaultGDT;
-    LoadGDT(&gdtDescriptor);
-
-    flushTss();
+    gdtDescriptor.Offset = (uint64_t)&defaultGDT;
+    loadGDT(&gdtDescriptor);
+    flushTSS();
 
     // PageFrameAllocator
     globalPageFrameAllocator = PageFrameAllocator();

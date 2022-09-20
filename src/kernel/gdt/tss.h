@@ -21,6 +21,11 @@ struct TSS {
     uint16_t iopb;
 } __attribute__((packed));
 
-extern "C" void flushTss();
+extern "C" void flushTSS();
+
+#define UPDATE_TSS(tss, var) \
+                        uint64_t (var) = 0; \
+                        asm volatile ("mov %0, %%rsp": "=r" (var)); \
+                        (tss)->rsp0 = (var);
 
 #endif //MODULETOS_TSS_H
