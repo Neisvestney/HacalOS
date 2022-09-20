@@ -3,8 +3,9 @@
 #include "../io.h"
 #include "../cstr.h"
 
-__attribute__((interrupt)) void PageFault_Handler(struct interrupt_frame* frame){
-    basicRenderer.Printl("Page Fault Detected");
+__attribute__((interrupt)) void PageFault_Handler(struct interrupt_frame* frame, uint64_t errorCode){
+    basicRenderer.Print("Page Fault Detected: ");
+    basicRenderer.Printl(toHexString(errorCode));
     while(true);
 }
 
@@ -13,8 +14,14 @@ __attribute__((interrupt)) void DoubleFault_Handler(struct interrupt_frame* fram
     while(true);
 }
 
-__attribute__((interrupt)) void GPFault_Handler(struct interrupt_frame* frame){
-    basicRenderer.Printl("General Protection Fault Detected");
+__attribute__((interrupt)) void GPFault_Handler(struct interrupt_frame* frame, uint64_t errorCode){
+    basicRenderer.Print("General Protection Fault Detected: ");
+    basicRenderer.Printl(toHexString(errorCode));
+    basicRenderer.Printl(toHexString(frame->ss));
+    basicRenderer.Printl(toHexString(frame->sp));
+    basicRenderer.Printl(toHexString(frame->flags));
+    basicRenderer.Printl(toHexString(frame->cs));
+    basicRenderer.Printl(toHexString(frame->ip));
     while(true);
 }
 
@@ -26,6 +33,11 @@ __attribute__((interrupt)) void KeyboardInt_Handler(struct interrupt_frame* fram
 
 __attribute__((interrupt)) void SysCall_Handler(struct interrupt_frame* frame){
     basicRenderer.Printl("SysCall");
+    basicRenderer.Printl(toHexString(frame->ss));
+    basicRenderer.Printl(toHexString(frame->sp));
+    basicRenderer.Printl(toHexString(frame->flags));
+    basicRenderer.Printl(toHexString(frame->cs));
+    basicRenderer.Printl(toHexString(frame->ip));
 }
 
 void PIC_EndMaster(){

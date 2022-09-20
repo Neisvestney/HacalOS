@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define IDT_TA_InterruptGate    0b10001110
+#define IDT_SysCall             0b11101110
 #define IDT_TA_CallGate         0b10001100
 #define IDT_TA_TrapGate         0b10001111
 

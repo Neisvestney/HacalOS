@@ -10,6 +10,8 @@
 #include "interrupts/idt.h"
 #include "interrupts/interrupts.h"
 #include "io.h"
+#include "userMode.h"
+#include "gdt/tss.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -121,10 +123,20 @@ IDTR idtr;
 
 extern "C" int kernelMain(BootInfo* bootInfo) {
     // GDT
+    TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
+    memset(tss, 0, 0x1000);
+    uint64_t address = 0;
+    asm volatile ("mov %0, %%rsp": "=r" (address));
+    tss->rsp0 = address;
+    DefaultGDT.TSS.SetBase((uint64_t) tss);
+    DefaultGDT.TSS.SetLimit(sizeof(TSS));
+
     GDTDescriptor gdtDescriptor{};
     gdtDescriptor.Size = sizeof(GDT) - 1;
     gdtDescriptor.Offset = (uint64_t)&DefaultGDT;
     LoadGDT(&gdtDescriptor);
+
+    flushTss();
 
     // PageFrameAllocator
     globalPageFrameAllocator = PageFrameAllocator();
@@ -176,9 +188,9 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     int_Keyboard->type_attr = IDT_TA_InterruptGate;
     int_Keyboard->selector = 0x08;
 
-    IDTDescEntry* int_Syscall = (IDTDescEntry*)(idtr.Offset + 0xAE * sizeof(IDTDescEntry));
+    IDTDescEntry* int_Syscall = (IDTDescEntry*)(idtr.Offset + 0x80 * sizeof(IDTDescEntry));
     int_Syscall->SetOffset((uint64_t)SysCall_Handler);
-    int_Syscall->type_attr = IDT_TA_InterruptGate;
+    int_Syscall->type_attr = IDT_SysCall;
     int_Syscall->selector = 0x08;
 
     asm ("lidt %0" : : "m" (idtr));
@@ -227,11 +239,13 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     uint64_t* testVirtual = (uint64_t*)0x600000000;
     basicRenderer.Printl(toHexString(*testVirtual));
 
-    asm ("int $0xAE");
+    asm ("int $0x80");
 
     basicRenderer.Print("Used memory: ");
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
     basicRenderer.Printl(" KiB");
+
+    goToUserMode();
 
     for (;;) {}
 

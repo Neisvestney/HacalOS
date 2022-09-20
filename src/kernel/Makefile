@@ -35,7 +35,7 @@ $(OUT)/%.o: %.cpp
 
 $(OUT)/%_asm.o: %.asm
 	@mkdir -p $(dir $@)
-	$(AS) $(ASFLAGS) $< -o $@
+	$(AS) $(ASFLAGS) $(CC_DEBUG_FLAGS) $< -o $@
 
 clean:
 	rm -rf $(OUT)
