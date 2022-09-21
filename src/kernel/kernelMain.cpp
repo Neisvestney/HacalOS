@@ -121,6 +121,13 @@ uint64_t test = 0x1234;
 
 IDTR idtr;
 
+void inUserMode() {
+    asm ("int $0x80");
+    basicRenderer.Printl("From user mode!");
+    asm ("hlt");
+    for (;;) {}
+}
+
 extern "C" int kernelMain(BootInfo* bootInfo) {
     // GDT
     TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
@@ -242,7 +249,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
     basicRenderer.Printl(" KiB");
 
-    goToUserMode();
+    goToUserMode(&inUserMode);
 
     for (;;) {}
 

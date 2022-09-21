@@ -1,6 +1,8 @@
 [bits 64]
 goToUserMode:
 ; IRETQ Method
+    cli
+    mov rcx, rax
     mov ax, (4 * 8) | 3 ; ring 3 data with bottom 2 bits set for ring 3
     mov ds, ax
     mov es, ax
@@ -11,8 +13,11 @@ goToUserMode:
     push (4 * 8) | 3 ; data selector
     push rax ; current esp
     pushf ; eflags
+    pop rbx ; Get EFLAGS back into EAX. The only way to read EFLAGS is to pushf then pop.
+    or rbx, 0x200 ; Set the IF flag.
+    push rbx ; Push the new EFLAGS value back onto the stack.
     push (3 * 8) | 3 ; code selector (ring 3 code with bottom 2 bits set for ring 3)
-    push inUserMode ; instruction address to return to
+    push rcx ; instruction address to return to
     o64 iret
 
 ; SYSEXIT Method
@@ -49,10 +54,5 @@ goToUserMode:
 ;	mov ecx, inUserMode ; to be loaded into RIP
 ;	mov r11, 0x202 ; to be loaded into EFLAGS
 ;	o64 sysret ;use "o64 sysret" if you assemble with NASM
-
-inUserMode:
-    mov ax, 0x1234
-    int 0x80
-    jmp $
 
 GLOBAL goToUserMode
