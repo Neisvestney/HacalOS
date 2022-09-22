@@ -29,7 +29,7 @@ void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
 
     InitBitmap(bitmapSize, largestFreeMemSeg);
 
-    LockPages(&pageBitmap, pageBitmap.size/ 4096 + 1);
+    LockPages(pageBitmap.buffer, pageBitmap.size/ 4096 + 1);
 
     for (int i = 0; i < mMapEntries; i++){
         EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)((uint64_t)mMap->map + (i * mMap->descriptorSize));

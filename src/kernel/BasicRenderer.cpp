@@ -53,7 +53,7 @@ void BasicRenderer::Print(const char* string) {
             PutChar(*chr, point.x, point.y);
             point.x += 8;
         }
-        if (point.x > framebuffer->pixelsPerScanline) {
+        if (point.x > framebuffer->width + 8) {
             NextLine();
         }
         chr++;

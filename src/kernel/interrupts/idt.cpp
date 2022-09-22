@@ -13,3 +13,10 @@ uint64_t IDTDescEntry::GetOffset(){
     offset |= (uint64_t)offset2 << 32;
     return offset;
 }
+
+void setIDTGate(IDTR* idtr, void* handler, uint8_t entryOffset, uint8_t typeAttr, uint8_t selector) {
+    IDTDescEntry* interrupt = (IDTDescEntry*)(idtr->offset + entryOffset * sizeof(IDTDescEntry));
+    interrupt->SetOffset((uint64_t)handler);
+    interrupt->type_attr = typeAttr;
+    interrupt->selector = selector;
+}

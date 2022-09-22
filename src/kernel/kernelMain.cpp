@@ -12,6 +12,7 @@
 #include "io.h"
 #include "userMode.h"
 #include "gdt/tss.h"
+#include "input/mouse.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -127,6 +128,10 @@ void inUserMode() {
 }
 
 extern "C" int kernelMain(BootInfo* bootInfo) {
+    // Renderer
+    basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
+    basicRenderer.point = {8, 110};
+
     // GDT
     TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
     memset(tss, 0, 0x1000);
@@ -166,46 +171,25 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     asm ("mov %0, %%cr3" : : "r" (PML4)); // Switch to new paging table
 
     // Interrupts
-    idtr.Limit = 0x0FFF;
-    idtr.Offset = (uint64_t)globalPageFrameAllocator.RequestPage();
+    idtr.limit = 0x0FFF;
+    idtr.offset = (uint64_t)globalPageFrameAllocator.RequestPage();
 
-    IDTDescEntry* int_PageFault = (IDTDescEntry*)(idtr.Offset + 0xE * sizeof(IDTDescEntry));
-    int_PageFault->SetOffset((uint64_t)PageFault_Handler);
-    int_PageFault->type_attr = IDT_TA_InterruptGate;
-    int_PageFault->selector = 0x08;
-
-    IDTDescEntry* int_DoubleFault = (IDTDescEntry*)(idtr.Offset + 0x8 * sizeof(IDTDescEntry));
-    int_DoubleFault->SetOffset((uint64_t)DoubleFault_Handler);
-    int_DoubleFault->type_attr = IDT_TA_InterruptGate;
-    int_DoubleFault->selector = 0x08;
-
-    IDTDescEntry* int_GPFault = (IDTDescEntry*)(idtr.Offset + 0xD * sizeof(IDTDescEntry));
-    int_GPFault->SetOffset((uint64_t)GPFault_Handler);
-    int_GPFault->type_attr = IDT_TA_InterruptGate;
-    int_GPFault->selector = 0x08;
-
-    IDTDescEntry* int_Keyboard = (IDTDescEntry*)(idtr.Offset + 0x21 * sizeof(IDTDescEntry));
-    int_Keyboard->SetOffset((uint64_t)KeyboardInt_Handler);
-    int_Keyboard->type_attr = IDT_TA_InterruptGate;
-    int_Keyboard->selector = 0x08;
-
-    IDTDescEntry* int_Syscall = (IDTDescEntry*)(idtr.Offset + 0x80 * sizeof(IDTDescEntry));
-    int_Syscall->SetOffset((uint64_t)SysCall_Handler);
-    int_Syscall->type_attr = IDT_SysCall;
-    int_Syscall->selector = 0x08;
+    setIDTGate(&idtr, (void*)PageFault_Handler,   0xE,  IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
+    setIDTGate(&idtr, (void*)DoubleFault_Handler, 0x8,  IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
+    setIDTGate(&idtr, (void*)GPFault_Handler,     0xD,  IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
+    setIDTGate(&idtr, (void*)KeyboardInt_Handler, 0x21, IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
+    setIDTGate(&idtr, (void*)MouseInt_Handler,    0x2C, IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
+    setIDTGate(&idtr, (void*)SysCall_Handler,     0x80, IDT_SysCall,          KERNEL_CODE_SEGMENT);
 
     asm ("lidt %0" : : "m" (idtr));
 
-    RemapPIC();
+    remapPIC();
+    initPS2Mouse();
 
-    outb(PIC1_DATA, 0b11111101);
-    outb(PIC2_DATA, 0b11111111);
+    outb(PIC1_DATA, 0b11111001);
+    outb(PIC2_DATA, 0b11101111);
 
-    asm ("sti");
-
-    // Renderer
-    basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
-    basicRenderer.point = {8, 110};
+    asm ("sti"); // Enabling interrupts only after setting basicRenderer
 
     // Same tests
     for (int x = 0; x < bootInfo->framebuffer->width; ++x) {

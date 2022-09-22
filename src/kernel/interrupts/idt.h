@@ -21,8 +21,10 @@ struct IDTDescEntry {
 };
 
 struct IDTR {
-    uint16_t Limit;
-    uint64_t Offset;
+    uint16_t limit;
+    uint64_t offset;
 } __attribute__((packed));
+
+void setIDTGate(IDTR* idtr, void* handler, uint8_t entryOffset, uint8_t typeAttr, uint8_t selector);
 
 #endif //MODULETOS_IDT_H

@@ -1,5 +1,6 @@
-#include "keyboardHandler.h"
+#include "keyboard.h"
 #include "../io.h"
+#include "ps2.h"
 
 
 bool isLeftShiftPressed;
@@ -22,6 +23,7 @@ void handleKeyboard(uint8_t scancode){
             return;
         case CapsLock:
             caps = !caps;
+            SetLED(false, false, caps);
             return;
         case Enter:
             basicRenderer.NextLine();
@@ -39,4 +41,12 @@ void handleKeyboard(uint8_t scancode){
     if (ascii != 0){
         basicRenderer.PutChar(ascii);
     }
+}
+
+void SetLED(bool scrollLock, bool numLock, bool capsLock) {
+    uint8_t data = 0;
+    data |= scrollLock ? 0b10000000 : 0;
+    data |= numLock    ? 0b01000000 : 0;
+    data |= capsLock   ? 0b00100000 : 0;
+    sendPS2Command(SET_LED_COMMAND, data);
 }

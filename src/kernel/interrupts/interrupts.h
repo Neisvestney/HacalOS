@@ -25,9 +25,10 @@ __attribute__((interrupt)) void PageFault_Handler(struct interrupt_frame* frame,
 __attribute__((interrupt)) void DoubleFault_Handler(struct interrupt_frame* frame);
 __attribute__((interrupt)) void GPFault_Handler(struct interrupt_frame* frame, uint64_t errorCode);
 __attribute__((interrupt)) void KeyboardInt_Handler(struct interrupt_frame* frame);
+__attribute__((interrupt)) void MouseInt_Handler(struct interrupt_frame* frame);
 __attribute__((interrupt)) void SysCall_Handler(struct interrupt_frame* frame);
 
-void RemapPIC();
+void remapPIC();
 void PIC_EndMaster();
 void PIC_EndSlave();
 
