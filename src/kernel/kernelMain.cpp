@@ -123,8 +123,6 @@ IDTR idtr;
 
 void inUserMode() {
     asm ("int $0x80");
-    basicRenderer.Printl("From user mode!");
-    asm ("hlt");
     for (;;) {}
 }
 
@@ -151,7 +149,6 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     // Framing
     PageTable* PML4 = (PageTable*)globalPageFrameAllocator.RequestPage();
-    memset(PML4, 0, 0x1000);
 
     PageTableManager pageTableManager = PageTableManager(PML4);
 
@@ -242,8 +239,6 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     pageTableManager.MapMemory((void*)0x600000000, (void*)&test);
     uint64_t* testVirtual = (uint64_t*)0x600000000;
     basicRenderer.Printl(toHexString(*testVirtual));
-
-    asm ("int $0x80");
 
     basicRenderer.Print("Used memory: ");
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));

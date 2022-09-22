@@ -25,24 +25,36 @@ void BasicRenderer::PutChar(char chr, uint32_t x, uint32_t y) {
     }
 }
 
+void BasicRenderer::PutChar(char chr) {
+    PutChar(chr, point.x, point.y);
+    point.x += 8;
+    if (point.x + 8 > framebuffer->width){
+        NextLine();
+    }
+}
+
 void BasicRenderer::PutChar(char chr, uint32_t x, uint32_t y, uint32_t color) {
     this->color = color;
     PutChar(chr, x, y);
+}
+
+
+void BasicRenderer::NextLine() {
+    point.x = 8;
+    point.y += 16;
 }
 
 void BasicRenderer::Print(const char* string) {
     char* chr = (char*) string;
     while (*chr != 0) {
         if (*chr == '\n') {
-            point.x = 8;
-            point.y += 16;
+            NextLine();
         } else {
             PutChar(*chr, point.x, point.y);
             point.x += 8;
         }
         if (point.x > framebuffer->pixelsPerScanline) {
-            point.x = 8;
-            point.y += 16;
+            NextLine();
         }
         chr++;
     }
@@ -61,4 +73,30 @@ void BasicRenderer::Printl(const char *str) {
 void BasicRenderer::Printl(const char *str, uint32_t color) {
     Print(str, color);
     Print("\n");
+}
+
+void BasicRenderer::ClearChar() {
+    if (point.x == 0){
+        point.x = framebuffer->width;
+        point.y -= 16;
+        if (point.y < 0) point.y = 0;
+    }
+
+    unsigned int xOff = point.x;
+    unsigned int yOff = point.y;
+
+    unsigned int* pixPtr = (unsigned int*)framebuffer->baseAddress;
+    for (unsigned long y = yOff; y < yOff + 16; y++){
+        for (unsigned long x = xOff - 8; x < xOff; x++){
+            *(unsigned int*)(pixPtr + x + (y * framebuffer->pixelsPerScanline)) = 0x000000;
+        }
+    }
+
+    point.x -= 8;
+
+    if (point.x < 0){
+        point.x = framebuffer->width;
+        point.y -= 16;
+        if (point.y < 0) point.y = 0;
+    }
 }

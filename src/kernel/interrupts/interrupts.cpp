@@ -2,6 +2,7 @@
 #include "../BasicRenderer.h"
 #include "../io.h"
 #include "../cstr.h"
+#include "../input/keyboardHandler.h"
 
 __attribute__((interrupt)) void PageFault_Handler(struct interrupt_frame* frame, uint64_t errorCode){
     basicRenderer.Print("Page Fault Detected: ");
@@ -26,8 +27,8 @@ __attribute__((interrupt)) void GPFault_Handler(struct interrupt_frame* frame, u
 }
 
 __attribute__((interrupt)) void KeyboardInt_Handler(struct interrupt_frame* frame){
-    basicRenderer.Printl("Pressed");
     uint8_t scancode = inb(0x60);
+    handleKeyboard(scancode);
     PIC_EndMaster();
 }
 

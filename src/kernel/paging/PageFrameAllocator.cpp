@@ -47,11 +47,13 @@ void PageFrameAllocator::InitBitmap(size_t bitmapSize, void* bufferAddress){
     }
 }
 
-void* PageFrameAllocator::RequestPage(){
+void* PageFrameAllocator::RequestPage(bool clearPage){
     for (; pageBitmapIndex < pageBitmap.size * 8; pageBitmapIndex++){
         if (pageBitmap[pageBitmapIndex]) continue;
-        LockPage((void*)(pageBitmapIndex * 4096));
-        return (void*)(pageBitmapIndex * 4096);
+        void* page = (void*)(pageBitmapIndex * 4096);
+        LockPage(page);
+        if (clearPage) memset(page, 0, 0x1000);
+        return page;
     }
 
     return NULL; // Page Frame Swap to file

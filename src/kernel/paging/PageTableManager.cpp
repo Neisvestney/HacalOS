@@ -1,10 +1,7 @@
 #include "PageTableManager.h"
-
-#include "PageTableManager.h"
 #include "PageMapIndexer.h"
 #include <stdint.h>
 #include "PageFrameAllocator.h"
-#include "../memory.h"
 
 PageTableManager::PageTableManager(PageTable* PML4){
     this->PML4 = PML4;
@@ -18,7 +15,6 @@ void PageTableManager::MapMemory(void* virtualMemory, void* physicalMemory){
     PageTable* PDP;
     if (!PDE.GetFlag(PT_Flag::Present)){
         PDP = (PageTable*)globalPageFrameAllocator.RequestPage();
-        memset(PDP, 0, 0x1000);
         PDE.SetAddress((uint64_t)PDP >> 12);
         PDE.SetFlag(PT_Flag::Present, true);
         PDE.SetFlag(PT_Flag::ReadWrite, true);
@@ -35,7 +31,6 @@ void PageTableManager::MapMemory(void* virtualMemory, void* physicalMemory){
     PageTable* PD;
     if (!PDE.GetFlag(PT_Flag::Present)){
         PD = (PageTable*)globalPageFrameAllocator.RequestPage();
-        memset(PD, 0, 0x1000);
         PDE.SetAddress((uint64_t)PD >> 12);
         PDE.SetFlag(PT_Flag::Present, true);
         PDE.SetFlag(PT_Flag::ReadWrite, true);
@@ -51,7 +46,6 @@ void PageTableManager::MapMemory(void* virtualMemory, void* physicalMemory){
     PageTable* PT;
     if (!PDE.GetFlag(PT_Flag::Present)){
         PT = (PageTable*)globalPageFrameAllocator.RequestPage();
-        memset(PT, 0, 0x1000);
         PDE.SetAddress((uint64_t)PT >> 12);
         PDE.SetFlag(PT_Flag::Present, true);
         PDE.SetFlag(PT_Flag::ReadWrite, true);

@@ -5,6 +5,7 @@
 #include "../Bitmap.h"
 #include "../efiMemory.h"
 #include "../bootinfo.h"
+#include "../memory.h"
 
 class PageFrameAllocator {
 public:
@@ -15,7 +16,7 @@ public:
     void FreePages(void* address, uint64_t pageCount);
     void LockPage(void* address);
     void LockPages(void* address, uint64_t pageCount);
-    void* RequestPage();
+    void* RequestPage(bool clearPage = true);
     void ReservePage(void* address);
     void ReservePages(void* address, uint64_t pageCount);
     uint64_t GetFreeRAM();
