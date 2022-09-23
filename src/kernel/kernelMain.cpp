@@ -130,7 +130,6 @@ void inUserMode() {
 extern "C" int kernelMain(BootInfo* bootInfo) {
     // Renderer
     basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
-    basicRenderer.point = {8, 110};
 
     // GDT
     TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
@@ -204,6 +203,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
         }
     }
 
+    basicRenderer.point = {8, 110};
     basicRenderer.Print("Modulet");
     basicRenderer.Printl("OS", 0xdddddd);
 

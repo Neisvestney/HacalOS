@@ -29,14 +29,16 @@ void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
 
     InitBitmap(bitmapSize, largestFreeMemSeg);
 
-    LockPages(pageBitmap.buffer, pageBitmap.size/ 4096 + 1);
-
+    ReservePages(0, memorySize / 4096 + 1);
     for (int i = 0; i < mMapEntries; i++){
         EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
-        if (desc->type != 7){ // not efiConventionalMemory
-            ReservePages(desc->physAddr, desc->numPages);
+        if (desc->type == 7){ // efiConventionalMemory
+            UnreservePages(desc->physAddr, desc->numPages);
         }
     }
+
+    ReservePages(0, 0x100);
+    LockPages(pageBitmap.buffer, pageBitmap.size / 4096 + 1);
 }
 
 void PageFrameAllocator::InitBitmap(size_t bitmapSize, void* bufferAddress){

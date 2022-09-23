@@ -44,6 +44,7 @@ PSF1Font* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle
 
     UINTN glyphBufferSize = fontHeader->charSize * 256;
     if (fontHeader->mode == 1) glyphBufferSize = fontHeader->charSize * 512;
+    if (fontHeader->mode == 3) glyphBufferSize = fontHeader->charSize * 512;
 
     void* glyphBuffer;
     uefi_call_wrapper(font->SetPosition, 2, font, sizeof(PSF1Header));
