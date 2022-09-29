@@ -2,6 +2,7 @@
 #define MODULETOS_BOOTINFO_H
 
 #include "efiMemory.h"
+#include "acpi.h"
 
 struct Framebuffer {
     void* baseAddress;
@@ -29,5 +30,6 @@ struct BootInfo {
     Framebuffer* framebuffer;
     PSF1Font* psf1Font;
     MemoryMap* memoryMap;
+    ACPI::RSDP2* rsdp;
 };
 #endif //MODULETOS_BOOTINFO_H

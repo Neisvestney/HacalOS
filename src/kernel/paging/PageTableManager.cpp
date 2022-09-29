@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include "PageFrameAllocator.h"
 
+PageTableManager kernelPageTableManager = PageTableManager(nullptr);
+
 PageTableManager::PageTableManager(PageTable* PML4){
     this->PML4 = PML4;
 }

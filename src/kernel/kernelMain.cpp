@@ -13,6 +13,8 @@
 #include "userMode.h"
 #include "gdt/tss.h"
 #include "input/mouse.h"
+#include "acpi.h"
+#include "pci/pci.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -154,17 +156,17 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     // Framing
     PageTable* PML4 = (PageTable*)globalPageFrameAllocator.RequestPage();
 
-    PageTableManager pageTableManager = PageTableManager(PML4);
+    kernelPageTableManager = PageTableManager(PML4);
 
     for (uint64_t t = 0; t < GetMemorySize(bootInfo->memoryMap); t+= 0x1000){
-        pageTableManager.MapMemory((void*)t, (void*)t);
+        kernelPageTableManager.MapMemory((void*)t, (void*)t);
     }
 
     uint64_t fbBase = (uint64_t)bootInfo->framebuffer->baseAddress;
     uint64_t fbSize = (uint64_t)bootInfo->framebuffer->bufferSize + 0x1000;
     globalPageFrameAllocator.ReservePages((void*)fbBase, fbSize / 0x1000 + 1);
     for (uint64_t t = fbBase; t < fbBase + fbSize; t += 4096){
-        pageTableManager.MapMemory((void*)t, (void*)t);
+        kernelPageTableManager.MapMemory((void*)t, (void*)t);
     }
 
     asm ("mov %0, %%cr3" : : "r" (PML4)); // Switch to new paging table
@@ -219,8 +221,39 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetReservedRAM() / 1024 / 1024));
     basicRenderer.Printl(" MiB");
 
+    basicRenderer.NextLine();
+    basicRenderer.Print("RSD PTR ");
+    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp));
+    basicRenderer.Print("RSDT ");
+    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp->rsdtAddress));
+    basicRenderer.Print("XSDT ");
+    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp->xsdtAddress));
+    basicRenderer.Print("REVISION ");
+    basicRenderer.Printl(toString((uint64_t)bootInfo->rsdp->revision));
+
+    ACPI::SDTHeader* xsdt = (ACPI::SDTHeader*)(bootInfo->rsdp->xsdtAddress);
+
+    int entries = (xsdt->length - sizeof(ACPI::SDTHeader)) / 8;
+    for (int i = 0; i < entries; ++i) {
+        ACPI::SDTHeader *header = (ACPI::SDTHeader *) *(uint64_t * )((uint64_t) xsdt + sizeof(ACPI::SDTHeader) + (i * 8));
+        for (int j = 0; j < 4; ++j) {
+            basicRenderer.PutChar(header->signature[j]);
+        }
+        basicRenderer.NextLine();
+    }
+
+
+    ACPI::MCFGHeader* mcfg = (ACPI::MCFGHeader*)ACPI::FindTable(xsdt, (char*)"MCFG");
+    basicRenderer.Print("MCFG ADDRESS ");
+    basicRenderer.Printl(toHexString((uint64_t)mcfg));
+    basicRenderer.NextLine();
+
+    basicRenderer.Printl("PCI:");
+    PCI::EnumeratePCI(mcfg);
+    basicRenderer.NextLine();
+
     basicRenderer.Printl(toHexString(test));
-    pageTableManager.MapMemory((void*)0x600000000, (void*)&test);
+    kernelPageTableManager.MapMemory((void*)0x600000000, (void*)&test);
     uint64_t* testVirtual = (uint64_t*)0x600000000;
     basicRenderer.Printl(toHexString(*testVirtual));
 

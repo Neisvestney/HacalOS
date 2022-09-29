@@ -15,7 +15,11 @@ const char* EFI_MEMORY_TYPE_STRINGS[] {
         "EfiMemoryMappedIO",
         "EfiMemoryMappedIOPortSpace",
         "EfiPalCode",
+        "EfiPersistentMemory",
+        "EfiMaxMemoryType"
 };
+
+uint64_t stats[16] = {0};
 
 uint64_t GetMemorySize(MemoryMap* mMap){
     static uint64_t memorySizeBytes = 0;
@@ -24,6 +28,7 @@ uint64_t GetMemorySize(MemoryMap* mMap){
     for (int i = 0; i < mMap->mapSize / mMap->descriptorSize; i++){
         EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
         memorySizeBytes += desc->numPages * 4096;
+        stats[desc->type] += desc->numPages;
     }
 
     return memorySizeBytes;

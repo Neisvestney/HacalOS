@@ -68,6 +68,15 @@ int memcmp(const void* aptr, const void* bptr, size_t n){
     return 0;
 }
 
+UINTN strcmp(CHAR8* a, CHAR8* b, UINTN length){
+    for (UINTN i = 0; i < length; i++){
+        if (*a != *b) return 0;
+        a++;
+        b++;
+    }
+    return 1;
+}
+
 EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
     InitializeLib(ImageHandle, SystemTable);
@@ -203,23 +212,61 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     //#endregion
 
     //#region Memory Map
+    Print(L"(Bootloader) Loading memory map");
     EFI_MEMORY_DESCRIPTOR* Map = NULL;
-    UINTN MapSize, MapKey;
+    UINTN MapSize = 0, MapKey;
     UINTN DescriptorSize;
     UINT32 DescriptorVersion;
 
-    uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
-    uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, MapSize, (void**)&Map);
-    uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
+    status = uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
+    MapSize += 512; // TODO Fix this
+    status = uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, MapSize, (void**)&Map);
+    if (EFI_ERROR(status)) {
+        Print(L" [FTL]\n");
+        Print(L"Cant allocate pool. Status: %d\n", status);
+        return EFI_LOAD_ERROR;
+    }
+    status = uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
+    if (EFI_ERROR(status)) {
+        Print(L" [FTL]\n");
+        Print(L"Status: %d\n", status);
+        return EFI_LOAD_ERROR;
+    }
 
     memoryMap.map = Map;
     memoryMap.mapSize = MapSize;
     memoryMap.descriptorSize = DescriptorSize;
+    Print(L" [OK]\n");
+    //#endregion
+
+    //#region ACPI
+    Print(L"(Bootloader) Searching for ACPI");
+    EFI_CONFIGURATION_TABLE* configTable = SystemTable->ConfigurationTable;
+    void* rsdp = NULL;
+    EFI_GUID Acpi2TableGuid = ACPI_TABLE_GUID;
+
+    for (UINTN index = 0; index < SystemTable->NumberOfTableEntries; index++){
+        if (CompareGuid(&configTable->VendorGuid, &Acpi2TableGuid)){
+            if (strcmp((CHAR8*)"RSD PTR ", (CHAR8*)configTable->VendorTable, 8)){
+                rsdp = (void*)configTable->VendorTable;
+                break;
+            }
+        }
+        configTable++;
+    }
+
+    if (rsdp == NULL) {
+        Print(L" [ERR]\n");
+        Print(L"ACPI not found");
+    } else {
+        Print(L" [OK]\n");
+    }
     //#endregion
 
     bootInfo.framebuffer = &framebuffer;
     bootInfo.psf1Font = font;
     bootInfo.memoryMap = &memoryMap;
+    bootInfo.rsdp = rsdp;
 
     int (*KernelStart)(BootInfo *) = ((__attribute__((sysv_abi)) int (*)(BootInfo *) ) header.e_entry);
 

@@ -35,5 +35,6 @@ typedef struct {
     Framebuffer* framebuffer;
     PSF1Font* psf1Font;
     MemoryMap* memoryMap;
+    void* rsdp;
 } BootInfo;
 #endif //MODULETOS_BOOTINFO_H
