@@ -10,18 +10,18 @@ namespace PCI{
 
         PCIDeviceHeader* pciDeviceHeader = (PCIDeviceHeader*)functionAddress;
 
-        if (pciDeviceHeader->DeviceID == 0) return;
-        if (pciDeviceHeader->DeviceID == 0xFFFF) return;
+        if (pciDeviceHeader->deviceId == 0) return;
+        if (pciDeviceHeader->deviceId == 0xFFFF) return;
 
-        basicRenderer.Print(GetVendorName(pciDeviceHeader->VendorID));
+        basicRenderer.Print(GetVendorName(pciDeviceHeader->vendorId));
         basicRenderer.Print(" / ");
-        basicRenderer.Print(GetDeviceName(pciDeviceHeader->VendorID, pciDeviceHeader->DeviceID));
+        basicRenderer.Print(GetDeviceName(pciDeviceHeader->vendorId, pciDeviceHeader->deviceId));
         basicRenderer.Print(" / ");
-        basicRenderer.Print(DeviceClasses[pciDeviceHeader->Class]);
+        basicRenderer.Print(deviceClasses[pciDeviceHeader->deviceClass]);
         basicRenderer.Print(" / ");
-        basicRenderer.Print(GetSubclassName(pciDeviceHeader->Class, pciDeviceHeader->Subclass));
+        basicRenderer.Print(GetSubclassName(pciDeviceHeader->deviceClass, pciDeviceHeader->subclass));
         basicRenderer.Print(" / ");
-        basicRenderer.Print(GetProgIFName(pciDeviceHeader->Class, pciDeviceHeader->Subclass, pciDeviceHeader->ProgIF));
+        basicRenderer.Print(GetProgIFName(pciDeviceHeader->deviceClass, pciDeviceHeader->subclass, pciDeviceHeader->progIF));
         basicRenderer.NextLine();
 
     }
@@ -34,8 +34,8 @@ namespace PCI{
 
         PCIDeviceHeader* pciDeviceHeader = (PCIDeviceHeader*)deviceAddress;
 
-        if (pciDeviceHeader->DeviceID == 0) return;
-        if (pciDeviceHeader->DeviceID == 0xFFFF) return;
+        if (pciDeviceHeader->deviceId == 0) return;
+        if (pciDeviceHeader->deviceId == 0xFFFF) return;
 
         for (uint64_t function = 0; function < 8; function++){
             EnumerateFunction(deviceAddress, function);
@@ -50,8 +50,8 @@ namespace PCI{
 
         PCIDeviceHeader* pciDeviceHeader = (PCIDeviceHeader*)busAddress;
 
-        if (pciDeviceHeader->DeviceID == 0) return;
-        if (pciDeviceHeader->DeviceID == 0xFFFF) return;
+        if (pciDeviceHeader->deviceId == 0) return;
+        if (pciDeviceHeader->deviceId == 0xFFFF) return;
 
         for (uint64_t device = 0; device < 32; device++){
             EnumerateDevice(busAddress, device);

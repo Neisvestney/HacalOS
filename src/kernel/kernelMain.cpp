@@ -15,6 +15,7 @@
 #include "input/mouse.h"
 #include "acpi.h"
 #include "pci/pci.h"
+#include "heap.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -184,6 +185,8 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     asm ("lidt %0" : : "m" (idtr));
 
+    initializeHeap((void *) 0x0000100000000000, 0x10);
+
     remapPIC();
     initPS2Mouse();
 
@@ -221,14 +224,14 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetReservedRAM() / 1024 / 1024));
     basicRenderer.Printl(" MiB");
 
-    basicRenderer.NextLine();
-    basicRenderer.Print("RSD PTR ");
-    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp));
-    basicRenderer.Print("RSDT ");
-    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp->rsdtAddress));
-    basicRenderer.Print("XSDT ");
-    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp->xsdtAddress));
-    basicRenderer.Print("REVISION ");
+//    basicRenderer.NextLine();
+//    basicRenderer.Print("RSD PTR ");
+//    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp));
+//    basicRenderer.Print("RSDT ");
+//    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp->rsdtAddress));
+//    basicRenderer.Print("XSDT ");
+//    basicRenderer.Printl(toHexString((uint64_t)bootInfo->rsdp->xsdtAddress));
+    basicRenderer.Print("ACPI REVISION ");
     basicRenderer.Printl(toString((uint64_t)bootInfo->rsdp->revision));
 
     ACPI::SDTHeader* xsdt = (ACPI::SDTHeader*)(bootInfo->rsdp->xsdtAddress);
@@ -256,6 +259,18 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     kernelPageTableManager.MapMemory((void*)0x600000000, (void*)&test);
     uint64_t* testVirtual = (uint64_t*)0x600000000;
     basicRenderer.Printl(toHexString(*testVirtual));
+    basicRenderer.NextLine();
+
+    basicRenderer.Printl(toHexString((uint64_t)malloc(0x8000)));
+    void* address = malloc(0x8000);
+    basicRenderer.Printl(toHexString((uint64_t)address));
+    basicRenderer.Printl(toHexString((uint64_t)malloc(0x100)));
+    free(address);
+    basicRenderer.Printl(toHexString((uint64_t)malloc(0x8001)));
+    uint64_t *var = new uint64_t;
+    basicRenderer.Printl(toHexString((uint64_t)var));
+    delete var;
+    basicRenderer.NextLine();
 
     basicRenderer.Print("Used memory: ");
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));

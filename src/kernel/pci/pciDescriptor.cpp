@@ -2,7 +2,7 @@
 #include "../cstr.h"
 
 namespace PCI {
-    const char* DeviceClasses[] {
+    const char* deviceClasses[] {
             "Unclassified",
             "Mass Storage Controller",
             "Network Controller",

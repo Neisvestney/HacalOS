@@ -9,23 +9,23 @@
 
 namespace PCI{
     struct PCIDeviceHeader{
-        uint16_t VendorID;
-        uint16_t DeviceID;
-        uint16_t Command;
-        uint16_t Status;
-        uint8_t RevisionID;
-        uint8_t ProgIF;
-        uint8_t Subclass;
-        uint8_t Class;
-        uint8_t CacheLineSize;
-        uint8_t LatencyTimer;
-        uint8_t HeaderType;
-        uint8_t BIST;
+        uint16_t vendorId;
+        uint16_t deviceId;
+        uint16_t command;
+        uint16_t status;
+        uint8_t revisionId;
+        uint8_t progIF;
+        uint8_t subclass;
+        uint8_t deviceClass;
+        uint8_t cacheLineSize;
+        uint8_t latencyTimer;
+        uint8_t headerType;
+        uint8_t bist;
     };
 
     void EnumeratePCI(ACPI::MCFGHeader* mcfg);
 
-    extern const char* DeviceClasses[];
+    extern const char* deviceClasses[];
 
     const char* GetVendorName(uint16_t vendorID);
     const char* GetDeviceName(uint16_t vendorID, uint16_t deviceID);
