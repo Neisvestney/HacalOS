@@ -27,9 +27,10 @@ __attribute__((interrupt)) void GPFault_Handler(struct interrupt_frame* frame, u
 __attribute__((interrupt)) void KeyboardInt_Handler(struct interrupt_frame* frame);
 __attribute__((interrupt)) void MouseInt_Handler(struct interrupt_frame* frame);
 __attribute__((interrupt)) void SysCall_Handler(struct interrupt_frame* frame);
+__attribute__((interrupt)) __attribute__((no_caller_saved_registers)) void PITInt_Handler(struct interrupt_frame* frame);
 
 void remapPIC();
-void PIC_EndMaster();
-void PIC_EndSlave();
+__attribute__((no_caller_saved_registers)) void PIC_EndMaster();
+__attribute__((no_caller_saved_registers)) void PIC_EndSlave();
 
 #endif //MODULETOS_INTERRUPTS_H

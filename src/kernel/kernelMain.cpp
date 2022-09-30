@@ -16,6 +16,7 @@
 #include "acpi.h"
 #include "pci/pci.h"
 #include "heap.h"
+#include "scheduling/pit.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -182,6 +183,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     setIDTGate(&idtr, (void*)KeyboardInt_Handler, 0x21, IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
     setIDTGate(&idtr, (void*)MouseInt_Handler,    0x2C, IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
     setIDTGate(&idtr, (void*)SysCall_Handler,     0x80, IDT_SysCall,          KERNEL_CODE_SEGMENT);
+    setIDTGate(&idtr, (void*)PITInt_Handler,      0x20, IDT_TA_InterruptGate, KERNEL_CODE_SEGMENT);
 
     asm ("lidt %0" : : "m" (idtr));
 
@@ -190,8 +192,12 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     remapPIC();
     initPS2Mouse();
 
-    outb(PIC1_DATA, 0b11111001);
+    asm ("cli");
+
+    outb(PIC1_DATA, 0b11111000);
     outb(PIC2_DATA, 0b11101111);
+
+    PIT::SetInterval(20);
 
     asm ("sti"); // Enabling interrupts only after setting basicRenderer
 
@@ -252,7 +258,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.NextLine();
 
     basicRenderer.Printl("PCI:");
-    PCI::EnumeratePCI(mcfg);
+    //PCI::EnumeratePCI(mcfg);
     basicRenderer.NextLine();
 
     basicRenderer.Printl(toHexString(test));
@@ -275,6 +281,11 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.Print("Used memory: ");
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
     basicRenderer.Printl(" KiB");
+
+    for (int i = 0; i < 10; ++i) {
+        PIT::Sleep(1000);
+        basicRenderer.Print("A");
+    }
 
     goToUserMode(&inUserMode);
 

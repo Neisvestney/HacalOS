@@ -4,6 +4,7 @@
 #include "../cstr.h"
 #include "../input/keyboard.h"
 #include "../input/mouse.h"
+#include "../scheduling/pit.h"
 
 __attribute__((interrupt)) void PageFault_Handler(struct interrupt_frame *frame, uint64_t errorCode) {
     basicRenderer.Print("Page Fault Detected: ");
@@ -39,6 +40,11 @@ __attribute__((interrupt)) void MouseInt_Handler(struct interrupt_frame *frame) 
     PIC_EndSlave();
 }
 
+__attribute__((interrupt)) __attribute__((no_caller_saved_registers)) void PITInt_Handler(struct interrupt_frame *frame) {
+    PIT::Tick();
+    PIC_EndMaster();
+}
+
 
 __attribute__((interrupt)) void SysCall_Handler(struct interrupt_frame *frame) {
     basicRenderer.Printl("SysCall");
@@ -49,11 +55,11 @@ __attribute__((interrupt)) void SysCall_Handler(struct interrupt_frame *frame) {
     basicRenderer.Printl(toHexString(frame->ip));
 }
 
-void PIC_EndMaster() {
+__attribute__((no_caller_saved_registers)) void PIC_EndMaster() {
     outb(PIC1_COMMAND, PIC_EOI);
 }
 
-void PIC_EndSlave() {
+__attribute__((no_caller_saved_registers)) void PIC_EndSlave() {
     outb(PIC2_COMMAND, PIC_EOI);
     outb(PIC1_COMMAND, PIC_EOI);
 }
