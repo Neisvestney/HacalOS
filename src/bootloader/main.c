@@ -267,6 +267,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     bootInfo.psf1Font = font;
     bootInfo.memoryMap = &memoryMap;
     bootInfo.rsdp = rsdp;
+    bootInfo.RT = RT;
 
     int (*KernelStart)(BootInfo *) = ((__attribute__((sysv_abi)) int (*)(BootInfo *) ) header.e_entry);
 

@@ -3,13 +3,13 @@
 
 #include <stdint.h>
 #include "../Bitmap.h"
-#include "../efiMemory.h"
+#include "../efi/efiMemory.h"
 #include "../bootinfo.h"
 #include "../memory.h"
 
 class PageFrameAllocator {
 public:
-    void ReadEFIMemoryMap(MemoryMap* mMap);
+    void ReadEFIMemoryMap(EFI::MemoryMap* mMap);
     Bitmap pageBitmap;
     uint64_t pageBitmapIndex {0};
     void FreePage(void* address);

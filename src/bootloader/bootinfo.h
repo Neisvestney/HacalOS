@@ -36,5 +36,6 @@ typedef struct {
     PSF1Font* psf1Font;
     MemoryMap* memoryMap;
     void* rsdp;
+    EFI_RUNTIME_SERVICES *RT;
 } BootInfo;
 #endif //MODULETOS_BOOTINFO_H

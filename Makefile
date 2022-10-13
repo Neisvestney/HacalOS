@@ -30,6 +30,9 @@ os.iso: os.img
 	cp $(OUT)/os.img  $(OUT)/iso
 	xorriso -as mkisofs -R -f --efi-boot os.img -o $(OUT)/os.iso $(OUT)/iso
 
+os.vdi: os.img
+	VBoxManage convertfromraw --format VDI $(OUT)/os.img $(OUT)/os.vdi
+
 run: os.img
 	export DISPLAY=$(ip route|awk '/^default/{print $3}'):0.0
 	#qemu-system-x86_64 $(QEMU_DEBUG_FLAGS) -machine q35 -drive file=$(OUT)/os.img -m 256M -cpu qemu64 -drive if=pflash,format=raw,unit=0,file="/usr/share/OVMF/OVMF_CODE.fd",readonly=on -drive if=pflash,format=raw,unit=1,file="OVMF_VARS.fd" -net none -serial stdio

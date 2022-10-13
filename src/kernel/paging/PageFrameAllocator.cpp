@@ -2,7 +2,7 @@
 
 PageFrameAllocator globalPageFrameAllocator;
 
-void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
+void PageFrameAllocator::ReadEFIMemoryMap(EFI::MemoryMap* mMap){
     if (Initialized) return;
 
     Initialized = true;
@@ -13,7 +13,7 @@ void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
     size_t largestFreeMemSegSize = 0;
 
     for (int i = 0; i < mMapEntries; i++){
-        EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
+        EFI::MemoryDescriptor* desc = (EFI::MemoryDescriptor*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
         if (desc->type == 7){ // type = EfiConventionalMemory
             if (desc->numPages * 4096 > largestFreeMemSegSize)
             {
@@ -31,7 +31,7 @@ void PageFrameAllocator::ReadEFIMemoryMap(MemoryMap* mMap){
 
     ReservePages(0, memorySize / 4096 + 1);
     for (int i = 0; i < mMapEntries; i++){
-        EFI_MEMORY_DESCRIPTOR* desc = (EFI_MEMORY_DESCRIPTOR*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
+        EFI::MemoryDescriptor* desc = (EFI::MemoryDescriptor*)((uint64_t)mMap->map + (i * mMap->descriptorSize));
         if (desc->type == 7){ // efiConventionalMemory
             UnreservePages(desc->physAddr, desc->numPages);
         }

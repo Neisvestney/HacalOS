@@ -135,6 +135,8 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     // Renderer
     basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
 
+    EFI::runtimeServices = bootInfo->runtimeServices;
+
     // GDT
     TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
     memset(tss, 0, 0x1000);
@@ -197,7 +199,8 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     outb(PIC1_DATA, 0b11111000);
     outb(PIC2_DATA, 0b11101111);
 
-    PIT::SetInterval(20);
+    PIT::InitPIT();
+    PIT::SetInterval(2);
 
     asm ("sti"); // Enabling interrupts only after setting basicRenderer
 
@@ -257,9 +260,9 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.Printl(toHexString((uint64_t)mcfg));
     basicRenderer.NextLine();
 
-    basicRenderer.Printl("PCI:");
-    //PCI::EnumeratePCI(mcfg);
-    basicRenderer.NextLine();
+//    basicRenderer.Printl("PCI:");
+//    PCI::EnumeratePCI(mcfg);
+//    basicRenderer.NextLine();
 
     basicRenderer.Printl(toHexString(test));
     kernelPageTableManager.MapMemory((void*)0x600000000, (void*)&test);
@@ -281,6 +284,17 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     basicRenderer.Print("Used memory: ");
     basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
     basicRenderer.Printl(" KiB");
+    basicRenderer.NextLine();
+
+    basicRenderer.Printl(toString((uint64_t)bootInfo->runtimeServices->Hdr.Revision));
+    EFI::Time time;
+    bootInfo->runtimeServices->GetTime(&time, nullptr);
+    basicRenderer.Print("Current time: ");
+    if (time.Hour < 10) basicRenderer.PutChar('0');
+    basicRenderer.Print(toString((uint64_t) time.Hour));
+    basicRenderer.PutChar(':');
+    if (time.Minute < 10) basicRenderer.PutChar('0');
+    basicRenderer.Printl(toString((uint64_t)time.Minute));
 
     for (int i = 0; i < 10; ++i) {
         PIT::Sleep(1000);
