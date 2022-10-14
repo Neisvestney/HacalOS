@@ -3,7 +3,7 @@ rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(su
 
 OUT = ../../build
 CC = gcc
-CFLAGS = -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar -mno-red-zone -maccumulate-outgoing-args -c
+CFLAGS = -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fno-exceptions -fshort-wchar -mno-red-zone -maccumulate-outgoing-args -c
 LD = ld
 LDFLAGS = -T link.ld -static -Bsymbolic -nostdlib
 AS = nasm

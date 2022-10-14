@@ -245,45 +245,22 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     ACPI::SDTHeader* xsdt = (ACPI::SDTHeader*)(bootInfo->rsdp->xsdtAddress);
 
-    int entries = (xsdt->length - sizeof(ACPI::SDTHeader)) / 8;
-    for (int i = 0; i < entries; ++i) {
-        ACPI::SDTHeader *header = (ACPI::SDTHeader *) *(uint64_t * )((uint64_t) xsdt + sizeof(ACPI::SDTHeader) + (i * 8));
-        for (int j = 0; j < 4; ++j) {
-            basicRenderer.PutChar(header->signature[j]);
-        }
-        basicRenderer.NextLine();
-    }
+//    int entries = (xsdt->length - sizeof(ACPI::SDTHeader)) / 8;
+//    for (int i = 0; i < entries; ++i) {
+//        ACPI::SDTHeader *header = (ACPI::SDTHeader *) *(uint64_t * )((uint64_t) xsdt + sizeof(ACPI::SDTHeader) + (i * 8));
+//        for (int j = 0; j < 4; ++j) {
+//            basicRenderer.PutChar(header->signature[j]);
+//        }
+//        basicRenderer.NextLine();
+//    }
 
-
-    ACPI::MCFGHeader* mcfg = (ACPI::MCFGHeader*)ACPI::FindTable(xsdt, (char*)"MCFG");
-    basicRenderer.Print("MCFG ADDRESS ");
-    basicRenderer.Printl(toHexString((uint64_t)mcfg));
-    basicRenderer.NextLine();
-
-//    basicRenderer.Printl("PCI:");
-//    PCI::EnumeratePCI(mcfg);
+    ACPI::MCFGHeader *mcfg = (ACPI::MCFGHeader *) ACPI::FindTable(xsdt, (char *) "MCFG");
+//    basicRenderer.Print("MCFG ADDRESS ");
+//    basicRenderer.Printl(toHexString((uint64_t)mcfg));
 //    basicRenderer.NextLine();
 
-    basicRenderer.Printl(toHexString(test));
-    kernelPageTableManager.MapMemory((void*)0x600000000, (void*)&test);
-    uint64_t* testVirtual = (uint64_t*)0x600000000;
-    basicRenderer.Printl(toHexString(*testVirtual));
-    basicRenderer.NextLine();
-
-    basicRenderer.Printl(toHexString((uint64_t)malloc(0x8000)));
-    void* address = malloc(0x8000);
-    basicRenderer.Printl(toHexString((uint64_t)address));
-    basicRenderer.Printl(toHexString((uint64_t)malloc(0x100)));
-    free(address);
-    basicRenderer.Printl(toHexString((uint64_t)malloc(0x8001)));
-    uint64_t *var = new uint64_t;
-    basicRenderer.Printl(toHexString((uint64_t)var));
-    delete var;
-    basicRenderer.NextLine();
-
-    basicRenderer.Print("Used memory: ");
-    basicRenderer.Print(toString((double) globalPageFrameAllocator.GetUsedRAM() / 1024));
-    basicRenderer.Printl(" KiB");
+    basicRenderer.Printl("PCI:");
+    PCI::EnumeratePCI(mcfg);
     basicRenderer.NextLine();
 
     basicRenderer.Printl(toString((uint64_t)bootInfo->runtimeServices->Hdr.Revision));

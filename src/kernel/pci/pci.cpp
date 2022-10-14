@@ -1,4 +1,5 @@
 #include "pci.h"
+#include "../ahci/ahci.h"
 
 namespace PCI{
 
@@ -24,6 +25,16 @@ namespace PCI{
         basicRenderer.Print(GetProgIFName(pciDeviceHeader->deviceClass, pciDeviceHeader->subclass, pciDeviceHeader->progIF));
         basicRenderer.NextLine();
 
+        switch (pciDeviceHeader->deviceClass){
+            case 0x01: // mass storage controller
+                switch (pciDeviceHeader->subclass){
+                    case 0x06: //Serial ATA
+                        switch (pciDeviceHeader->progIF){
+                            case 0x01: //AHCI 1.0 device
+                                new AHCI::AHCIDriver(pciDeviceHeader);
+                        }
+                }
+        }
     }
 
     void EnumerateDevice(uint64_t busAddress, uint64_t device){

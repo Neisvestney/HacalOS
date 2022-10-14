@@ -115,6 +115,7 @@ void HeapSegHdr::CombineForward(){
     }
 
     length = length + next->length + sizeof(HeapSegHdr);
+    next = next->next;
 }
 
 void printMap() {
