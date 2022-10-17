@@ -3,7 +3,7 @@ ENTRY(kernelMain)
 
 SECTIONS
 {
-    . = 0x100000;
+    . = 0xFFFF810000000000;
     PROVIDE(_kernelStart = .);
 	.text : ALIGN(0x1000)
 	{

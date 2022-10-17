@@ -2,9 +2,11 @@
 //#include <efilib.h>
 
 #include <elf.h>
+#include <stdbool.h>
 #include "../gnu-efi/inc/efi.h"
 #include "../gnu-efi/inc/efilib.h"
 #include "bootinfo.h"
+#include "paging.h"
 
 typedef unsigned long long size_t;
 
@@ -12,8 +14,8 @@ Framebuffer framebuffer;
 MemoryMap memoryMap;
 BootInfo bootInfo;
 
-EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable){
-    EFI_FILE* LoadedFile;
+EFI_FILE *LoadFile(EFI_FILE *Directory, CHAR16 *Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
+    EFI_FILE *LoadedFile;
 
     EFI_LOADED_IMAGE_PROTOCOL* LoadedImage;
     uefi_call_wrapper(SystemTable->BootServices->HandleProtocol, 3, ImageHandle, &gEfiLoadedImageProtocolGuid, (void**)&LoadedImage);
@@ -21,7 +23,7 @@ EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EF
     EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* FileSystem;
     uefi_call_wrapper(SystemTable->BootServices->HandleProtocol, 3, LoadedImage->DeviceHandle, &gEfiSimpleFileSystemProtocolGuid, (void**)&FileSystem);
 
-    if (Directory == NULL){
+    if (Directory == NULL) {
         uefi_call_wrapper(FileSystem->OpenVolume, 2, FileSystem, &Directory);
     }
 
@@ -32,8 +34,89 @@ EFI_FILE* LoadFile(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EF
     return LoadedFile;
 }
 
-PSF1Font* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
-    EFI_FILE* font = LoadFile(Directory, Path, ImageHandle, SystemTable);
+void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory) {
+    uint64_t virtualAddress = (uint64_t) virtualMemory;
+    virtualAddress = (virtualAddress >> 12);
+    uint64_t P_i = (virtualAddress & 0x1ff);
+    virtualAddress = (virtualAddress >> 9);
+    uint64_t PT_i = (virtualAddress & 0x1ff);
+    virtualAddress = (virtualAddress >> 9);
+    uint64_t PD_i = (virtualAddress & 0x1ff);
+    virtualAddress = (virtualAddress >> 9);
+    uint64_t PDP_i = (virtualAddress & 0x1ff);
+
+//    Print(L"%d\n", P_i);
+//    Print(L"%d\n", PT_i);
+//    Print(L"%d\n", PD_i);
+//    Print(L"%d\n", PDP_i);
+
+    PageDirectoryEntry PDE;
+
+    PDE = PML4->entries[PDP_i];
+    struct PageTable* PDP;
+    if (!GetFlag(&PDE, Present)){
+        PDP = (struct PageTable*)NULL;
+        EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&PDP);
+        SetMem(PDP, 4096, 0);
+        Print(L"Status: %d, Address: %x\n", status, PDP);
+        SetAddress(&PDE, (uint64_t)PDP >> 12);
+        SetFlag(&PDE, Present, true);
+        SetFlag(&PDE, ReadWrite, true);
+        SetFlag(&PDE, UserSuper, true);
+        PML4->entries[PDP_i] = PDE;
+    }
+    else
+    {
+        PDP = (struct PageTable*)((uint64_t)GetAddress(&PDE) << 12);
+    }
+
+
+    PDE = PDP->entries[PD_i];
+    struct PageTable* PD;
+    if (!GetFlag(&PDE, Present)){
+        PD = (struct PageTable*)NULL;
+        EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&PD);
+        SetMem(PD, 4096, 0);
+        Print(L"Status: %d, Address: %x\n", status, PD);
+        SetAddress(&PDE, (uint64_t)PD >> 12);
+        SetFlag(&PDE, Present, true);
+        SetFlag(&PDE, ReadWrite, true);
+        SetFlag(&PDE, UserSuper, true);
+        PDP->entries[PD_i] = PDE;
+    }
+    else
+    {
+        PD = (struct PageTable*)((uint64_t)GetAddress(&PDE) << 12);
+    }
+
+    PDE = PD->entries[PT_i];
+    struct PageTable* PT;
+    if (!GetFlag(&PDE, Present)){
+        PT = (struct PageTable*)NULL;
+        EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&PT);
+        SetMem(PT, 4096, 0);
+        Print(L"Status: %d, Address: %x\n", status, PT);
+        SetAddress(&PDE, (uint64_t)PT >> 12);
+        SetFlag(&PDE, Present, true);
+        SetFlag(&PDE, ReadWrite, true);
+        SetFlag(&PDE, UserSuper, true);
+        PD->entries[PT_i] = PDE;
+    }
+    else
+    {
+        PT = (struct PageTable*)((uint64_t)GetAddress(&PDE) << 12);
+    }
+
+    PDE = PT->entries[P_i];
+    SetAddress(&PDE, (uint64_t)physicalMemory >> 12);
+    SetFlag(&PDE, Present, true);
+    SetFlag(&PDE, ReadWrite, true);
+    SetFlag(&PDE, UserSuper, true);
+    PT->entries[P_i] = PDE;
+}
+
+PSF1Font *LoadPSF1Font(EFI_FILE *Directory, CHAR16 *Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
+    EFI_FILE *font = LoadFile(Directory, Path, ImageHandle, SystemTable);
     if (font == NULL) return NULL;
 
     PSF1Header* fontHeader;
@@ -46,7 +129,7 @@ PSF1Font* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle
     if (fontHeader->mode == 1) glyphBufferSize = fontHeader->charSize * 512;
     if (fontHeader->mode == 3) glyphBufferSize = fontHeader->charSize * 512;
 
-    void* glyphBuffer;
+    void *glyphBuffer;
     uefi_call_wrapper(font->SetPosition, 2, font, sizeof(PSF1Header));
     uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, glyphBufferSize, (void**)&glyphBuffer);
     uefi_call_wrapper(font->Read, 3, font, &glyphBufferSize, glyphBuffer);
@@ -59,17 +142,17 @@ PSF1Font* LoadPSF1Font(EFI_FILE* Directory, CHAR16* Path, EFI_HANDLE ImageHandle
     return finishedFont;
 }
 
-int memcmp(const void* aptr, const void* bptr, size_t n){
-    const unsigned char* a = aptr, *b = bptr;
-    for (size_t i = 0; i < n; i++){
+int memcmp(const void *aptr, const void *bptr, size_t n) {
+    const unsigned char *a = aptr, *b = bptr;
+    for (size_t i = 0; i < n; i++) {
         if (a[i] < b[i]) return -1;
         else if (a[i] > b[i]) return 1;
     }
     return 0;
 }
 
-UINTN strcmp(CHAR8* a, CHAR8* b, UINTN length){
-    for (UINTN i = 0; i < length; i++){
+UINTN strcmp(CHAR8 *a, CHAR8 *b, UINTN length) {
+    for (UINTN i = 0; i < length; i++) {
         if (*a != *b) return 0;
         a++;
         b++;
@@ -77,11 +160,37 @@ UINTN strcmp(CHAR8* a, CHAR8* b, UINTN length){
     return 1;
 }
 
-EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
-{
+EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     InitializeLib(ImageHandle, SystemTable);
 
     ST = SystemTable;
+
+    uint64_t PML4Address = 0;
+    Print(L"PML4: %x\n", PML4Address);
+    asm(
+            "mov %%cr3, %%rax\n\t"
+            "mov %%rax, %0\n\t"
+            :"=m" (PML4Address)
+            : /* no input */
+            : "%rax"
+            );
+    struct PageTable *PML4 = (struct PageTable *) PML4Address;
+
+    struct PageTable *NewPML4;
+    uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&NewPML4);
+    CopyMem(NewPML4, PML4, 4096);
+    asm ("mov %0, %%cr3" : : "r" (NewPML4));
+    PML4 = NewPML4;
+
+    Print(L"PML4: %x\n", PML4);
+
+//    Print(L"Tests\n");
+//    uint64_t *testPhysical = (uint64_t *)0x100000;
+//    *testPhysical = 0xAABBCC;
+//    MapMemory(PML4, (void *) 0xFFFF800000000000, (void *) 0x100000);
+//    uint64_t *testVirtual = (uint64_t *) 0xFFFF800000000000;
+//    uint64_t num = *testVirtual;
+//    Print(L"%d %d\n", num, *(testPhysical));
 
     //#region GOP Setup
     Print(L"(Bootloader) Gop setup");
@@ -90,25 +199,25 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     EFI_GUID gopGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 
-    status = uefi_call_wrapper(BS->LocateProtocol, 3, &gopGuid, NULL, (void**)&gop);
-    if(EFI_ERROR(status))
+    status = uefi_call_wrapper(BS->LocateProtocol, 3, &gopGuid, NULL, (void **) &gop);
+    if (EFI_ERROR(status))
         Print(L" [WARN] Unable to locate GOP");
 
-    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
+    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION * info;
     UINTN SizeOfInfo, numModes, nativeMode;
 
-    uefi_call_wrapper(gop->QueryMode, 4, gop, gop->Mode==NULL?0:gop->Mode->Mode, &SizeOfInfo, &info);
+    uefi_call_wrapper(gop->QueryMode, 4, gop, gop->Mode == NULL ? 0 : gop->Mode->Mode, &SizeOfInfo, &info);
     // this is needed to get the current video mode
     if (status == EFI_NOT_STARTED)
         status = uefi_call_wrapper(gop->SetMode, 2, gop, 0);
-    if(EFI_ERROR(status)) {
+    if (EFI_ERROR(status)) {
         Print(L" [WARN] Unable to get native mode");
     } else {
         nativeMode = gop->Mode->Mode;
         numModes = gop->Mode->MaxMode;
     }
 
-    framebuffer.baseAddress = (void*)gop->Mode->FrameBufferBase;
+    framebuffer.baseAddress = (void *) gop->Mode->FrameBufferBase;
     framebuffer.bufferSize = gop->Mode->FrameBufferSize;
     framebuffer.width = gop->Mode->Info->HorizontalResolution;
     framebuffer.height = gop->Mode->Info->VerticalResolution;
@@ -131,7 +240,7 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     //#region Load Font
     Print(L"(Bootloader) Loading Font");
 
-    PSF1Font* font = LoadPSF1Font(NULL, L"zap-ext-light16.psf", ImageHandle, SystemTable);
+    PSF1Font *font = LoadPSF1Font(NULL, L"zap-ext-light16.psf", ImageHandle, SystemTable);
     if (font == NULL) {
         Print(L" [ERR]\n");
     } else {
@@ -140,10 +249,10 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     //#endregion
 
     //#region Load Kernel
-    Print(L"(Bootloader) Loading ModuletOS Kernel");
+    Print(L"(Bootloader) Loading Kernel");
 
-    EFI_FILE* Kernel = LoadFile(NULL, L"kernel.elf", ImageHandle, SystemTable);
-    if (Kernel == NULL){
+    EFI_FILE *Kernel = LoadFile(NULL, L"kernel.elf", ImageHandle, SystemTable);
+    if (Kernel == NULL) {
         Print(L" [ERR]\n");
         Print(L"(Bootloader) Could not load kernel\n");
         return EFI_LOAD_ERROR;
@@ -152,10 +261,10 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     Elf64_Ehdr header;
     {
         UINTN FileInfoSize;
-        EFI_FILE_INFO* FileInfo;
+        EFI_FILE_INFO *FileInfo;
         uefi_call_wrapper(Kernel->GetInfo, 4, Kernel, &gEfiFileInfoGuid, &FileInfoSize, NULL);
-        uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, FileInfoSize, (void**)&FileInfo);
-        uefi_call_wrapper(Kernel->GetInfo, 4, Kernel, &gEfiFileInfoGuid, &FileInfoSize, (void**)&FileInfo);
+        uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, FileInfoSize, (void **) &FileInfo);
+        uefi_call_wrapper(Kernel->GetInfo, 4, Kernel, &gEfiFileInfoGuid, &FileInfoSize, (void **) &FileInfo);
 
         UINTN size = sizeof(header);
         uefi_call_wrapper(Kernel->Read, 3, Kernel, &size, &header);
@@ -168,32 +277,41 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             header.e_type != ET_EXEC ||
             header.e_machine != EM_X86_64 ||
             header.e_version != EV_CURRENT
-            )
-    {
+            ) {
         Print(L" [ERR]\n");
         Print(L"(Bootloader) Kernel format is bad\n");
         return EFI_LOAD_ERROR;
     }
 
-    Elf64_Phdr* phdrs;
+    Elf64_Phdr *phdrs;
     {
         uefi_call_wrapper(Kernel->SetPosition, 2, Kernel, header.e_phoff);
         UINTN size = header.e_phnum * header.e_phentsize;
-        uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 2, EfiLoaderData, size, (void**)&phdrs);
+        uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, size, (void **) &phdrs);
         uefi_call_wrapper(Kernel->Read, 3, Kernel, &size, phdrs);
     }
 
+    KernelMapElement kernelMap[10];
+    uint64_t kernelMapSize = 0;
+
     for (
-            Elf64_Phdr* phdr = phdrs;
-            (char*)phdr < (char*)phdrs + header.e_phnum * header.e_phentsize;
-            phdr = (Elf64_Phdr*)((char*)phdr + header.e_phentsize))
-    {
-        switch (phdr->p_type){
-            case PT_LOAD:
-            {
+            Elf64_Phdr *phdr = phdrs;
+            (char *) phdr < (char *) phdrs + header.e_phnum * header.e_phentsize;
+            phdr = (Elf64_Phdr *) ((char *) phdr + header.e_phentsize)) {
+        switch (phdr->p_type) {
+            case PT_LOAD: {
                 int pages = (phdr->p_memsz + 0x1000 - 1) / 0x1000;
                 Elf64_Addr segment = phdr->p_paddr;
-                EFI_STATUS s = uefi_call_wrapper(SystemTable->BootServices->AllocatePages, 4, AllocateAddress, EfiLoaderData, pages, &segment);
+                EFI_STATUS s = uefi_call_wrapper(SystemTable->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, pages, &segment);
+                Print(L"Segment: %x Phys: %X%X\n", segment, phdr->p_paddr >> 32, phdr->p_paddr);
+                kernelMap[kernelMapSize].physicalStart = segment;
+                kernelMap[kernelMapSize].virtualStart = phdr->p_paddr;
+                kernelMap[kernelMapSize].pagesCount = pages;
+                kernelMapSize++;
+                for (int i = 0; i < pages; ++i) {
+                    SetMem((void *) segment + 4096 * i, 4096, 0);
+                    MapMemory(PML4, (void *) phdr->p_paddr + 4096 * i, (void *) segment + 4096 * i);
+                }
                 if (EFI_ERROR(s)) {
                     Print(L" [FTL]\nError allocating memory for kernel at address from %f KiB to %f KiB\n",segment / (double) 1024, (segment + (pages * 4096)) / (double) 1024);
                     return EFI_LOAD_ERROR;
@@ -201,7 +319,8 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
                 uefi_call_wrapper(Kernel->SetPosition, 2, Kernel, phdr->p_offset);
                 UINTN size = phdr->p_filesz;
-                uefi_call_wrapper(Kernel->Read, 3, Kernel, &size, (void*)segment);
+                uefi_call_wrapper(Kernel->Read, 3, Kernel, &size, (void *) segment);
+                //asm ("int $0x3");
                 break;
             }
         }
@@ -213,14 +332,14 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     //#region Memory Map
     Print(L"(Bootloader) Loading memory map");
-    EFI_MEMORY_DESCRIPTOR* Map = NULL;
+    EFI_MEMORY_DESCRIPTOR *Map = NULL;
     UINTN MapSize = 0, MapKey;
     UINTN DescriptorSize;
     UINT32 DescriptorVersion;
 
     status = uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5, &MapSize, Map, &MapKey, &DescriptorSize, &DescriptorVersion);
-    MapSize += 512; // TODO Fix this
-    status = uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, MapSize, (void**)&Map);
+    //MapSize += 512; // TODO Fix this
+    status = uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, MapSize, (void **) &Map);
     if (EFI_ERROR(status)) {
         Print(L" [FTL]\n");
         Print(L"Cant allocate pool. Status: %d\n", status);
@@ -241,14 +360,14 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     //#region ACPI
     Print(L"(Bootloader) Searching for ACPI");
-    EFI_CONFIGURATION_TABLE* configTable = SystemTable->ConfigurationTable;
-    void* rsdp = NULL;
+    EFI_CONFIGURATION_TABLE *configTable = SystemTable->ConfigurationTable;
+    void *rsdp = NULL;
     EFI_GUID Acpi2TableGuid = ACPI_TABLE_GUID;
 
-    for (UINTN index = 0; index < SystemTable->NumberOfTableEntries; index++){
-        if (CompareGuid(&configTable->VendorGuid, &Acpi2TableGuid)){
-            if (strcmp((CHAR8*)"RSD PTR ", (CHAR8*)configTable->VendorTable, 8)){
-                rsdp = (void*)configTable->VendorTable;
+    for (UINTN index = 0; index < SystemTable->NumberOfTableEntries; index++) {
+        if (CompareGuid(&configTable->VendorGuid, &Acpi2TableGuid)) {
+            if (strcmp((CHAR8 *) "RSD PTR ", (CHAR8 *) configTable->VendorTable, 8)) {
+                rsdp = (void *) configTable->VendorTable;
                 break;
             }
         }
@@ -268,8 +387,14 @@ EFI_STATUS efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     bootInfo.memoryMap = &memoryMap;
     bootInfo.rsdp = rsdp;
     bootInfo.RT = RT;
+    bootInfo.kernelMapSize = kernelMapSize;
+    for (int i = 0; i < kernelMapSize; ++i) {
+        bootInfo.kernelMap[i] = kernelMap[i];
+    }
 
-    int (*KernelStart)(BootInfo *) = ((__attribute__((sysv_abi)) int (*)(BootInfo *) ) header.e_entry);
+    Print(L"ENTRY: %x\n", header.e_entry);
+    Print(L"START: %x\n", bootInfo.kernelMapSize);
+    int (*KernelStart)(BootInfo *) = ((__attribute__((sysv_abi)) int (*)(BootInfo *)) header.e_entry);
 
     uefi_call_wrapper(SystemTable->BootServices->ExitBootServices, 2, ImageHandle, MapKey);
 

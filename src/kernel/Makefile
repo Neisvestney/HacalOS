@@ -5,7 +5,7 @@ OUT = ../../build
 CC = gcc
 CFLAGS = -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fno-exceptions -fshort-wchar -mno-red-zone -maccumulate-outgoing-args -c
 LD = ld
-LDFLAGS = -T link.ld -static -Bsymbolic -nostdlib
+LDFLAGS = -T link.ld -static -Bsymbolic -nostdlib --no-relax
 AS = nasm
 ASFLAGS = -f elf64
 
@@ -35,7 +35,7 @@ $(OUT)/%.o: %.cpp
 
 $(OUT)/%_asm.o: %.asm
 	@mkdir -p $(dir $@)
-	$(AS) $(ASFLAGS) $(CC_DEBUG_FLAGS) $< -o $@
+	$(AS) $(ASFLAGS) $< -o $@
 
 clean:
 	rm -rf $(OUT)

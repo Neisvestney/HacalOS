@@ -1,6 +1,6 @@
 R = $(shell pwd)/
 
-OBJECTS = main.o
+OBJECTS = main.o paging.o
 OUT = ../../build
 CC = gcc
 CFLAGS = -Ignu-efi/inc -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar -mno-red-zone -maccumulate-outgoing-args -c

@@ -27,11 +27,19 @@ struct PSF1Font {
     void* glyphBuffer;
 };
 
+struct KernelMapElement {
+    uint64_t virtualStart;
+    uint64_t physicalStart;
+    uint64_t pagesCount;
+};
+
 struct BootInfo {
     Framebuffer* framebuffer;
     PSF1Font* psf1Font;
     EFI::MemoryMap* memoryMap;
     ACPI::RSDP2* rsdp;
     EFI::RuntimeServices* runtimeServices;
+    uint64_t kernelMapSize;
+    KernelMapElement kernelMap[10];
 };
 #endif //MODULETOS_BOOTINFO_H

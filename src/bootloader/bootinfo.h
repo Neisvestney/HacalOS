@@ -32,10 +32,18 @@ typedef struct {
 } MemoryMap;
 
 typedef struct {
+    uint64_t virtualStart;
+    uint64_t physicalStart;
+    uint64_t pagesCount;
+} KernelMapElement;
+
+typedef struct {
     Framebuffer* framebuffer;
     PSF1Font* psf1Font;
     MemoryMap* memoryMap;
     void* rsdp;
     EFI_RUNTIME_SERVICES *RT;
+    uint64_t kernelMapSize;
+    KernelMapElement kernelMap[10];
 } BootInfo;
 #endif //MODULETOS_BOOTINFO_H

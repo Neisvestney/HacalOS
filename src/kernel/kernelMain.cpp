@@ -17,6 +17,7 @@
 #include "pci/pci.h"
 #include "heap.h"
 #include "scheduling/pit.h"
+#include "paging/PageMapIndexer.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -134,8 +135,23 @@ void inUserMode() {
 extern "C" int kernelMain(BootInfo* bootInfo) {
     // Renderer
     basicRenderer = BasicRenderer(bootInfo->framebuffer, bootInfo->psf1Font);
+    for (int x = 0; x < bootInfo->framebuffer->width; ++x) {
+        for (int y = 0; y < bootInfo->framebuffer->height; ++y) {
+            basicRenderer.PutPixel(x, y, 0x000000);
+        }
+    }
 
+    // Runtime Services
     EFI::runtimeServices = bootInfo->runtimeServices;
+
+    // PageFrameAllocator
+    globalPageFrameAllocator = PageFrameAllocator();
+    globalPageFrameAllocator.ReadEFIMemoryMap(bootInfo->memoryMap);
+    uint64_t kernelSize = (uint64_t)&_kernelEnd - (uint64_t)&_kernelStart;
+    uint64_t kernelPages = (uint64_t)kernelSize / 4096 + 1;
+    for (int i = 0; i < bootInfo->kernelMapSize; ++i) {
+        globalPageFrameAllocator.ReservePages((void *) bootInfo->kernelMap[i].physicalStart, bootInfo->kernelMap[i].pagesCount);
+    }
 
     // GDT
     TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
@@ -150,13 +166,6 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     loadGDT(&gdtDescriptor);
     flushTSS();
 
-    // PageFrameAllocator
-    globalPageFrameAllocator = PageFrameAllocator();
-    globalPageFrameAllocator.ReadEFIMemoryMap(bootInfo->memoryMap);
-    uint64_t kernelSize = (uint64_t)&_kernelEnd - (uint64_t)&_kernelStart;
-    uint64_t kernelPages = (uint64_t)kernelSize / 4096 + 1;
-    globalPageFrameAllocator.ReservePages(&_kernelStart, kernelPages);
-
     // Framing
     PageTable* PML4 = (PageTable*)globalPageFrameAllocator.RequestPage();
 
@@ -164,6 +173,11 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     for (uint64_t t = 0; t < GetMemorySize(bootInfo->memoryMap); t+= 0x1000){
         kernelPageTableManager.MapMemory((void*)t, (void*)t);
+    }
+    for (int i = 0; i < bootInfo->kernelMapSize; ++i) {
+        for (int page = 0; page < bootInfo->kernelMap[i].pagesCount; ++page) {
+            kernelPageTableManager.MapMemory((void *) (bootInfo->kernelMap[i].virtualStart + 4096 * page), (void *) (bootInfo->kernelMap[i].physicalStart + 4096 * page));
+        }
     }
 
     uint64_t fbBase = (uint64_t)bootInfo->framebuffer->baseAddress;
