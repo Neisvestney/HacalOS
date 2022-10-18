@@ -1,5 +1,5 @@
-#ifndef MODULETOS_EFIRUNTIMESERVICES_H
-#define MODULETOS_EFIRUNTIMESERVICES_H
+#ifndef HACALOS_EFIRUNTIMESERVICES_H
+#define HACALOS_EFIRUNTIMESERVICES_H
 
 #include "efi.h"
 #include "efiMemory.h"
@@ -126,4 +126,4 @@ namespace EFI {
     double Timestamp();
 }
 
-#endif //MODULETOS_EFIRUNTIMESERVICES_H
+#endif //HACALOS_EFIRUNTIMESERVICES_H

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_BOOTINFO_H
-#define MODULETOS_BOOTINFO_H
+#ifndef HACALOS_BOOTINFO_H
+#define HACALOS_BOOTINFO_H
 
 #include "efi/efiMemory.h"
 #include "acpi.h"
@@ -42,4 +42,4 @@ struct BootInfo {
     uint64_t kernelMapSize;
     KernelMapElement kernelMap[10];
 };
-#endif //MODULETOS_BOOTINFO_H
+#endif //HACALOS_BOOTINFO_H

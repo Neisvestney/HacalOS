@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PS2_H
-#define MODULETOS_PS2_H
+#ifndef HACALOS_PS2_H
+#define HACALOS_PS2_H
 
 #include <stdint.h>
 #include "../io.h"
@@ -15,4 +15,4 @@ void waitPS2ControllerInputReady();
 void sendPS2Command(uint8_t command, uint8_t data);
 uint8_t readPS2();
 
-#endif //MODULETOS_PS2_H
+#endif //HACALOS_PS2_H

@@ -1,4 +1,4 @@
-# ModuletOS
+# HacalOS
 Simple x64 UEFI OS
 ## Building
 Environment: Linux (or WSL)

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_KEYBOARD_H
-#define MODULETOS_KEYBOARD_H
+#ifndef HACALOS_KEYBOARD_H
+#define HACALOS_KEYBOARD_H
 
 #include <stdint.h>
 #include "keyboardScancodeTranslation.h"
@@ -10,4 +10,4 @@
 void handleKeyboard(uint8_t scancode);
 void SetLED(bool scrollLock, bool numLock, bool capsLock);
 
-#endif //MODULETOS_KEYBOARD_H
+#endif //HACALOS_KEYBOARD_H

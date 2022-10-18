@@ -1,5 +1,5 @@
-#ifndef MODULETOS_INTERRUPTS_H
-#define MODULETOS_INTERRUPTS_H
+#ifndef HACALOS_INTERRUPTS_H
+#define HACALOS_INTERRUPTS_H
 
 #include <stdint.h>
 
@@ -33,4 +33,4 @@ void remapPIC();
 __attribute__((no_caller_saved_registers)) void PIC_EndMaster();
 __attribute__((no_caller_saved_registers)) void PIC_EndSlave();
 
-#endif //MODULETOS_INTERRUPTS_H
+#endif //HACALOS_INTERRUPTS_H

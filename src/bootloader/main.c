@@ -62,7 +62,7 @@ void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory
         SetAddress(&PDE, (uint64_t)PDP >> 12);
         SetFlag(&PDE, Present, true);
         SetFlag(&PDE, ReadWrite, true);
-        SetFlag(&PDE, UserSuper, true);
+        SetFlag(&PDE, UserSuper, false);
         PML4->entries[PDP_i] = PDE;
     }
     else
@@ -81,7 +81,7 @@ void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory
         SetAddress(&PDE, (uint64_t)PD >> 12);
         SetFlag(&PDE, Present, true);
         SetFlag(&PDE, ReadWrite, true);
-        SetFlag(&PDE, UserSuper, true);
+        SetFlag(&PDE, UserSuper, false);
         PDP->entries[PD_i] = PDE;
     }
     else
@@ -99,7 +99,7 @@ void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory
         SetAddress(&PDE, (uint64_t)PT >> 12);
         SetFlag(&PDE, Present, true);
         SetFlag(&PDE, ReadWrite, true);
-        SetFlag(&PDE, UserSuper, true);
+        SetFlag(&PDE, UserSuper, false);
         PD->entries[PT_i] = PDE;
     }
     else
@@ -111,7 +111,7 @@ void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory
     SetAddress(&PDE, (uint64_t)physicalMemory >> 12);
     SetFlag(&PDE, Present, true);
     SetFlag(&PDE, ReadWrite, true);
-    SetFlag(&PDE, UserSuper, true);
+    SetFlag(&PDE, UserSuper, false);
     PT->entries[P_i] = PDE;
 }
 

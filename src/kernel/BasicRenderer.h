@@ -1,5 +1,5 @@
-#ifndef MODULETOS_BASICRENDERER_H
-#define MODULETOS_BASICRENDERER_H
+#ifndef HACALOS_BASICRENDERER_H
+#define HACALOS_BASICRENDERER_H
 
 #include "math.h"
 #include "bootinfo.h"
@@ -26,4 +26,4 @@ public:
 
 extern BasicRenderer basicRenderer;
 
-#endif //MODULETOS_BASICRENDERER_H
+#endif //HACALOS_BASICRENDERER_H

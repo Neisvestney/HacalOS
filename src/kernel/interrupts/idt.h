@@ -1,5 +1,5 @@
-#ifndef MODULETOS_IDT_H
-#define MODULETOS_IDT_H
+#ifndef HACALOS_IDT_H
+#define HACALOS_IDT_H
 
 #include <stdint.h>
 
@@ -27,4 +27,4 @@ struct IDTR {
 
 void setIDTGate(IDTR* idtr, void* handler, uint8_t entryOffset, uint8_t typeAttr, uint8_t selector);
 
-#endif //MODULETOS_IDT_H
+#endif //HACALOS_IDT_H

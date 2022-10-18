@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PAGEFRAMEALLOCATOR_H
-#define MODULETOS_PAGEFRAMEALLOCATOR_H
+#ifndef HACALOS_PAGEFRAMEALLOCATOR_H
+#define HACALOS_PAGEFRAMEALLOCATOR_H
 
 #include <stdint.h>
 #include "../Bitmap.h"
@@ -35,4 +35,4 @@ private:
 
 extern PageFrameAllocator globalPageFrameAllocator;
 
-#endif //MODULETOS_PAGEFRAMEALLOCATOR_H
+#endif //HACALOS_PAGEFRAMEALLOCATOR_H

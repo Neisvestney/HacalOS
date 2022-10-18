@@ -1,5 +1,5 @@
-#ifndef MODULETOS_BITMAP_H
-#define MODULETOS_BITMAP_H
+#ifndef HACALOS_BITMAP_H
+#define HACALOS_BITMAP_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -14,4 +14,4 @@ public:
 };
 
 
-#endif //MODULETOS_BITMAP_H
+#endif //HACALOS_BITMAP_H

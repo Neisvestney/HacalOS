@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PCI_H
-#define MODULETOS_PCI_H
+#ifndef HACALOS_PCI_H
+#define HACALOS_PCI_H
 
 #include <stdint.h>
 #include "../acpi.h"
@@ -54,4 +54,4 @@ namespace PCI{
     const char* GetSubclassName(uint8_t classCode, uint8_t subclassCode);
     const char* GetProgIFName(uint8_t classCode, uint8_t subclassCode, uint8_t progIF);
 }
-#endif //MODULETOS_PCI_H
+#endif //HACALOS_PCI_H

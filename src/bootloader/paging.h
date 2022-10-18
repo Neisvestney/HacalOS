@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PAGING_H
-#define MODULETOS_PAGING_H
+#ifndef HACALOS_PAGING_H
+#define HACALOS_PAGING_H
 
 #include <stdint.h>
 
@@ -30,4 +30,4 @@ bool GetFlag(PageDirectoryEntry* entry, enum PT_Flag flag);
 void SetAddress(PageDirectoryEntry* entry, uint64_t address);
 uint64_t GetAddress(PageDirectoryEntry* entry);
 
-#endif //MODULETOS_PAGING_H
+#endif //HACALOS_PAGING_H

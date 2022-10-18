@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PAGETABLEMANAGER_H
-#define MODULETOS_PAGETABLEMANAGER_H
+#ifndef HACALOS_PAGETABLEMANAGER_H
+#define HACALOS_PAGETABLEMANAGER_H
 
 #include "paging.h"
 
@@ -13,4 +13,4 @@ public:
 
 extern PageTableManager kernelPageTableManager;
 
-#endif //MODULETOS_PAGETABLEMANAGER_H
+#endif //HACALOS_PAGETABLEMANAGER_H

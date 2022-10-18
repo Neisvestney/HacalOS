@@ -1,5 +1,5 @@
-#ifndef MODULETOS_GDT_H
-#define MODULETOS_GDT_H
+#ifndef HACALOS_GDT_H
+#define HACALOS_GDT_H
 
 #include <stdint.h>
 
@@ -52,4 +52,4 @@ extern GDT defaultGDT;
 
 extern "C" void loadGDT(GDTDescriptor* gdtDescriptor);
 
-#endif //MODULETOS_GDT_H
+#endif //HACALOS_GDT_H

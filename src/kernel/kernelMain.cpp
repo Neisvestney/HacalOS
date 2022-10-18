@@ -232,7 +232,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     }
 
     basicRenderer.point = {8, 110};
-    basicRenderer.Print("Modulet");
+    basicRenderer.Print("Hacal");
     basicRenderer.Printl("OS", 0xdddddd);
 
     basicRenderer.Print("Free memory: ");

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_TSS_H
-#define MODULETOS_TSS_H
+#ifndef HACALOS_TSS_H
+#define HACALOS_TSS_H
 
 #include <stdint.h>
 
@@ -28,4 +28,4 @@ extern "C" void flushTSS();
                         asm volatile ("mov %0, %%rsp": "=r" (var)); \
                         (tss)->rsp0 = (var);
 
-#endif //MODULETOS_TSS_H
+#endif //HACALOS_TSS_H

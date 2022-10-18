@@ -1,5 +1,5 @@
-#ifndef MODULETOS_CSTR_H
-#define MODULETOS_CSTR_H
+#ifndef HACALOS_CSTR_H
+#define HACALOS_CSTR_H
 
 #include <stdint.h>
 
@@ -13,4 +13,4 @@ const char* toHexString(uint32_t value);
 const char* toHexString(uint16_t value);
 const char* toHexString(uint8_t value);
 
-#endif //MODULETOS_CSTR_H
+#endif //HACALOS_CSTR_H

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_ACPI_H
-#define MODULETOS_ACPI_H
+#ifndef HACALOS_ACPI_H
+#define HACALOS_ACPI_H
 
 #include <stdint.h>
 
@@ -43,4 +43,4 @@ namespace ACPI {
 
     void *FindTable(SDTHeader *sdtHeader, char *signature);
 }
-#endif //MODULETOS_ACPI_H
+#endif //HACALOS_ACPI_H

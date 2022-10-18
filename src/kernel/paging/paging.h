@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PAGING_H
-#define MODULETOS_PAGING_H
+#ifndef HACALOS_PAGING_H
+#define HACALOS_PAGING_H
 
 #include <stdint.h>
 
@@ -29,4 +29,4 @@ struct PageTable {
     PageDirectoryEntry entries [512];
 }__attribute__((aligned(0x1000)));
 
-#endif //MODULETOS_PAGING_H
+#endif //HACALOS_PAGING_H

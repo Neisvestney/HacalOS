@@ -1,5 +1,5 @@
-#ifndef MODULETOS_HEAP_H
-#define MODULETOS_HEAP_H
+#ifndef HACALOS_HEAP_H
+#define HACALOS_HEAP_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -27,4 +27,4 @@ void* operator new ( size_t count );
 void operator delete ( void* ptr );
 void operator delete ( void* ptr, size_t size );
 
-#endif //MODULETOS_HEAP_H
+#endif //HACALOS_HEAP_H

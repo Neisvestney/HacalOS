@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PAGEMAPINDEXER_H
-#define MODULETOS_PAGEMAPINDEXER_H
+#ifndef HACALOS_PAGEMAPINDEXER_H
+#define HACALOS_PAGEMAPINDEXER_H
 
 #include <stdint.h>
 
@@ -12,4 +12,4 @@ public:
     uint64_t P_i;
 };
 
-#endif //MODULETOS_PAGEMAPINDEXER_H
+#endif //HACALOS_PAGEMAPINDEXER_H

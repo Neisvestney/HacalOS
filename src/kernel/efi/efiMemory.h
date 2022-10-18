@@ -1,5 +1,5 @@
-#ifndef MODULETOS_EFIMEMORY_H
-#define MODULETOS_EFIMEMORY_H
+#ifndef HACALOS_EFIMEMORY_H
+#define HACALOS_EFIMEMORY_H
 
 #include <stdint.h>
 
@@ -25,4 +25,4 @@ namespace EFI {
 
 }
 
-#endif //MODULETOS_EFIMEMORY_H
+#endif //HACALOS_EFIMEMORY_H

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_MOUSE_H
-#define MODULETOS_MOUSE_H
+#ifndef HACALOS_MOUSE_H
+#define HACALOS_MOUSE_H
 
 #include "stdint.h"
 
@@ -20,4 +20,4 @@ void handlePS2Mouse(uint8_t data);
 void processMousePacket();
 void initPS2Mouse();
 
-#endif //MODULETOS_MOUSE_H
+#endif //HACALOS_MOUSE_H

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_PIT_H
-#define MODULETOS_PIT_H
+#ifndef HACALOS_PIT_H
+#define HACALOS_PIT_H
 
 #include <stdint.h>
 
@@ -23,4 +23,4 @@ namespace PIT {
     void Tick();
 }
 
-#endif //MODULETOS_PIT_H
+#endif //HACALOS_PIT_H

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_EFI_H
-#define MODULETOS_EFI_H
+#ifndef HACALOS_EFI_H
+#define HACALOS_EFI_H
 
 #include "stdint.h"
 
@@ -23,8 +23,8 @@ namespace EFI {
         uint8_t  Data4[8];
     };
 
-#define EFI_MODULETOS_GUID \
+#define EFI_HACALOS_GUID \
    { 0x80b2538b, 0x948e, 0x4bf2, {0x68, 0x61, 0x63, 0x61, 0x6C, 0x6F, 0x73, 0x00} }
 }
 
-#endif //MODULETOS_EFI_H
+#endif //HACALOS_EFI_H

@@ -1,5 +1,5 @@
-#ifndef MODULETOS_AHCI_H
-#define MODULETOS_AHCI_H
+#ifndef HACALOS_AHCI_H
+#define HACALOS_AHCI_H
 
 #include <stdint.h>
 #include "../pci/pci.h"
@@ -164,4 +164,4 @@ namespace AHCI {
     };
 }
 
-#endif //MODULETOS_AHCI_H
+#endif //HACALOS_AHCI_H

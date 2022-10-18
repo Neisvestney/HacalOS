@@ -1,5 +1,5 @@
-#ifndef MODULETOS_MATH_H
-#define MODULETOS_MATH_H
+#ifndef HACALOS_MATH_H
+#define HACALOS_MATH_H
 
 #include <stdint.h>
 
@@ -13,4 +13,4 @@ struct SPoint {
     int64_t y;
 };
 
-#endif //MODULETOS_MATH_H
+#endif //HACALOS_MATH_H

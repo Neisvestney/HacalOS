@@ -1,5 +1,5 @@
-#ifndef MODULETOS_BOOTINFO_H
-#define MODULETOS_BOOTINFO_H
+#ifndef HACALOS_BOOTINFO_H
+#define HACALOS_BOOTINFO_H
 
 #include "../gnu-efi/inc/efi.h"
 
@@ -46,4 +46,4 @@ typedef struct {
     uint64_t kernelMapSize;
     KernelMapElement kernelMap[10];
 } BootInfo;
-#endif //MODULETOS_BOOTINFO_H
+#endif //HACALOS_BOOTINFO_H
