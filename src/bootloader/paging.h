@@ -30,4 +30,7 @@ bool GetFlag(PageDirectoryEntry* entry, enum PT_Flag flag);
 void SetAddress(PageDirectoryEntry* entry, uint64_t address);
 uint64_t GetAddress(PageDirectoryEntry* entry);
 
+struct PageTable *ReplaceTable();
+void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory);
+
 #endif //HACALOS_PAGING_H

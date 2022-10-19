@@ -34,87 +34,6 @@ EFI_FILE *LoadFile(EFI_FILE *Directory, CHAR16 *Path, EFI_HANDLE ImageHandle, EF
     return LoadedFile;
 }
 
-void MapMemory(struct PageTable *PML4, void *virtualMemory, void *physicalMemory) {
-    uint64_t virtualAddress = (uint64_t) virtualMemory;
-    virtualAddress = (virtualAddress >> 12);
-    uint64_t P_i = (virtualAddress & 0x1ff);
-    virtualAddress = (virtualAddress >> 9);
-    uint64_t PT_i = (virtualAddress & 0x1ff);
-    virtualAddress = (virtualAddress >> 9);
-    uint64_t PD_i = (virtualAddress & 0x1ff);
-    virtualAddress = (virtualAddress >> 9);
-    uint64_t PDP_i = (virtualAddress & 0x1ff);
-
-//    Print(L"%d\n", P_i);
-//    Print(L"%d\n", PT_i);
-//    Print(L"%d\n", PD_i);
-//    Print(L"%d\n", PDP_i);
-
-    PageDirectoryEntry PDE;
-
-    PDE = PML4->entries[PDP_i];
-    struct PageTable* PDP;
-    if (!GetFlag(&PDE, Present)){
-        PDP = (struct PageTable*)NULL;
-        EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&PDP);
-        SetMem(PDP, 4096, 0);
-        Print(L"Status: %d, Address: %x\n", status, PDP);
-        SetAddress(&PDE, (uint64_t)PDP >> 12);
-        SetFlag(&PDE, Present, true);
-        SetFlag(&PDE, ReadWrite, true);
-        SetFlag(&PDE, UserSuper, false);
-        PML4->entries[PDP_i] = PDE;
-    }
-    else
-    {
-        PDP = (struct PageTable*)((uint64_t)GetAddress(&PDE) << 12);
-    }
-
-
-    PDE = PDP->entries[PD_i];
-    struct PageTable* PD;
-    if (!GetFlag(&PDE, Present)){
-        PD = (struct PageTable*)NULL;
-        EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&PD);
-        SetMem(PD, 4096, 0);
-        Print(L"Status: %d, Address: %x\n", status, PD);
-        SetAddress(&PDE, (uint64_t)PD >> 12);
-        SetFlag(&PDE, Present, true);
-        SetFlag(&PDE, ReadWrite, true);
-        SetFlag(&PDE, UserSuper, false);
-        PDP->entries[PD_i] = PDE;
-    }
-    else
-    {
-        PD = (struct PageTable*)((uint64_t)GetAddress(&PDE) << 12);
-    }
-
-    PDE = PD->entries[PT_i];
-    struct PageTable* PT;
-    if (!GetFlag(&PDE, Present)){
-        PT = (struct PageTable*)NULL;
-        EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&PT);
-        SetMem(PT, 4096, 0);
-        Print(L"Status: %d, Address: %x\n", status, PT);
-        SetAddress(&PDE, (uint64_t)PT >> 12);
-        SetFlag(&PDE, Present, true);
-        SetFlag(&PDE, ReadWrite, true);
-        SetFlag(&PDE, UserSuper, false);
-        PD->entries[PT_i] = PDE;
-    }
-    else
-    {
-        PT = (struct PageTable*)((uint64_t)GetAddress(&PDE) << 12);
-    }
-
-    PDE = PT->entries[P_i];
-    SetAddress(&PDE, (uint64_t)physicalMemory >> 12);
-    SetFlag(&PDE, Present, true);
-    SetFlag(&PDE, ReadWrite, true);
-    SetFlag(&PDE, UserSuper, false);
-    PT->entries[P_i] = PDE;
-}
-
 PSF1Font *LoadPSF1Font(EFI_FILE *Directory, CHAR16 *Path, EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     EFI_FILE *font = LoadFile(Directory, Path, ImageHandle, SystemTable);
     if (font == NULL) return NULL;
@@ -165,24 +84,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
 
     ST = SystemTable;
 
-    uint64_t PML4Address = 0;
-    Print(L"PML4: %x\n", PML4Address);
-    asm(
-            "mov %%cr3, %%rax\n\t"
-            "mov %%rax, %0\n\t"
-            :"=m" (PML4Address)
-            : /* no input */
-            : "%rax"
-            );
-    struct PageTable *PML4 = (struct PageTable *) PML4Address;
-
-    struct PageTable *NewPML4;
-    uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 1, (EFI_PHYSICAL_ADDRESS*)&NewPML4);
-    CopyMem(NewPML4, PML4, 4096);
-    asm ("mov %0, %%cr3" : : "r" (NewPML4));
-    PML4 = NewPML4;
-
-    Print(L"PML4: %x\n", PML4);
+    struct PageTable *PML4 = ReplaceTable();
 
 //    Print(L"Tests\n");
 //    uint64_t *testPhysical = (uint64_t *)0x100000;
@@ -303,7 +205,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
                 int pages = (phdr->p_memsz + 0x1000 - 1) / 0x1000;
                 Elf64_Addr segment = phdr->p_paddr;
                 EFI_STATUS s = uefi_call_wrapper(SystemTable->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, pages, &segment);
-                Print(L"Segment: %x Phys: %X%X\n", segment, phdr->p_paddr >> 32, phdr->p_paddr);
+                // Print(L"Segment: %x Phys: %X%X\n", segment, phdr->p_paddr >> 32, phdr->p_paddr);
                 kernelMap[kernelMapSize].physicalStart = segment;
                 kernelMap[kernelMapSize].virtualStart = phdr->p_paddr;
                 kernelMap[kernelMapSize].pagesCount = pages;
@@ -392,8 +294,6 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
         bootInfo.kernelMap[i] = kernelMap[i];
     }
 
-    Print(L"ENTRY: %x\n", header.e_entry);
-    Print(L"START: %x\n", bootInfo.kernelMapSize);
     int (*KernelStart)(BootInfo *) = ((__attribute__((sysv_abi)) int (*)(BootInfo *)) header.e_entry);
 
     uefi_call_wrapper(SystemTable->BootServices->ExitBootServices, 2, ImageHandle, MapKey);

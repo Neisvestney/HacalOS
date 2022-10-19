@@ -20,10 +20,10 @@ os.img: loader kernel
 	mformat -i  $(OUT)/os.img -f 1440 ::
 	mmd -i  $(OUT)/os.img ::/EFI
 	mmd -i  $(OUT)/os.img ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  $(OUT)/BOOTX64.EFI ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  $(OUT)/kernel.elf ::
-	mcopy -i  $(OUT)/os.img  $(OUT)/zap-light16.psf ::
-	mcopy -i  $(OUT)/os.img  $(OUT)/zap-ext-light16.psf ::
+	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/BOOTX64.EFI ::/EFI/BOOT
+	mcopy -i  $(OUT)/os.img  $(OUT)/kernel/kernel.elf ::
+	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-light16.psf ::
+	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-ext-light16.psf ::
 
 os.iso: os.img
 	@mkdir -p $(OUT)/iso

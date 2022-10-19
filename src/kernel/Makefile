@@ -1,7 +1,7 @@
 R = $(shell pwd)/
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
-OUT = ../../build
+OUT = ../../build/kernel
 CC = gcc
 CFLAGS = -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fno-exceptions -fshort-wchar -mno-red-zone -maccumulate-outgoing-args -c
 LD = ld
