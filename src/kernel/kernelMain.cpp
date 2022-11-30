@@ -18,6 +18,7 @@
 #include "heap.h"
 #include "scheduling/pit.h"
 #include "paging/PageMapIndexer.h"
+#include "stack.h"
 
 extern uint64_t _kernelStart[];
 extern uint64_t _kernelEnd[];
@@ -154,8 +155,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
     }
 
     // GDT
-    TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage();
-    memset(tss, 0, 0x1000);
+    TSS* tss = (TSS*) globalPageFrameAllocator.RequestPage(true);
     UPDATE_TSS(tss, rsp)
     defaultGDT.tss.SetBase((uint64_t) tss);
     defaultGDT.tss.SetLimit(sizeof(TSS));
@@ -203,8 +203,6 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     asm ("lidt %0" : : "m" (idtr));
 
-    initializeHeap((void *) 0x0000100000000000, 0x10);
-
     remapPIC();
     initPS2Mouse();
 
@@ -215,6 +213,9 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 
     PIT::InitPIT();
     PIT::SetInterval(2);
+
+    initializeHeap((void *) 0xFFFF820000000000, 0x10);
+    initializeStack((void *) 0xFFFF830000000000, 0x10);
 
     asm ("sti"); // Enabling interrupts only after setting basicRenderer
 
@@ -292,9 +293,12 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
         basicRenderer.Print("A");
     }
 
+    UPDATE_TSS(tss, stack2)
     goToUserMode(&inUserMode);
 
-    for (;;) {}
+    for (;;) {
+        asm ("hlt");
+    }
 
     return 1;
 }

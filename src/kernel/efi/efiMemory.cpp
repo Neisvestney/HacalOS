@@ -36,4 +36,16 @@ namespace EFI {
         return memorySizeBytes;
     }
 
+    const char *GetMemoryType(MemoryMap *mMap, uint64_t address) {
+        int32_t type;
+
+        for (int i = 0; i < mMap->mapSize / mMap->descriptorSize; i++) {
+            MemoryDescriptor *desc = (MemoryDescriptor *) ((uint64_t) mMap->map + (i * mMap->descriptorSize));
+            if (address > (uint64_t) desc->physAddr && address < (uint64_t) desc->physAddr + 4096 * desc->numPages) {
+                return EFI_MEMORY_TYPE_STRINGS[type];
+            }
+        }
+
+        return "Not Found";
+    }
 }

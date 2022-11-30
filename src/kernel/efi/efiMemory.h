@@ -22,7 +22,7 @@ namespace EFI {
     };
 
     uint64_t GetMemorySize(MemoryMap *mMap);
-
+    const char* GetMemoryType(MemoryMap *mMap, uint64_t address);
 }
 
 #endif //HACALOS_EFIMEMORY_H

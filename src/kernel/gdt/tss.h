@@ -25,7 +25,7 @@ extern "C" void flushTSS();
 
 #define UPDATE_TSS(tss, var) \
                         uint64_t (var) = 0; \
-                        asm volatile ("mov %0, %%rsp": "=r" (var)); \
+                        asm volatile ("mov %%rsp, %0": "=r" (var)); \
                         (tss)->rsp0 = (var);
 
 #endif //HACALOS_TSS_H
