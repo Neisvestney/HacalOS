@@ -27,7 +27,7 @@ kernel.elf: $(OBJS)
 
 $(OUT)/./interrupts/interrupts.o: ./interrupts/interrupts.cpp
 	@mkdir -p $(dir $@)
-	$(CC) -mno-red-zone -mgeneral-regs-only -ffreestanding -c $^ -o $@
+	$(CC) -mno-red-zone -mgeneral-regs-only -ffreestanding -c $(CC_DEBUG_FLAGS) $^ -o $@
 
 $(OUT)/%.o: %.cpp
 	@mkdir -p $(dir $@)

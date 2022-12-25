@@ -293,7 +293,7 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
         basicRenderer.Print("A");
     }
 
-    UPDATE_TSS(tss, stack2)
+    tss->rsp0 = 0xFFFF830000000000;
     goToUserMode(&inUserMode);
 
     for (;;) {
