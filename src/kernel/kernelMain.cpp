@@ -274,9 +274,25 @@ extern "C" int kernelMain(BootInfo* bootInfo) {
 //    basicRenderer.Printl(toHexString((uint64_t)mcfg));
 //    basicRenderer.NextLine();
 
-    basicRenderer.Printl("PCI:");
-    PCI::EnumeratePCI(mcfg);
-    basicRenderer.NextLine();
+//    basicRenderer.Printl("PCI:");
+//    PCI::EnumeratePCI(mcfg);
+//    basicRenderer.NextLine();
+
+    ACPI::MADTHeader *madt = (ACPI::MADTHeader *) ACPI::FindTable(xsdt, (char *) "APIC");
+    for (
+            ACPI::MADTEntryHeader *madtEntry = (ACPI::MADTEntryHeader *) ((size_t) madt + sizeof(ACPI::MADTHeader));
+            (size_t) madtEntry < (size_t) madt + madt->header.length;
+            madtEntry = (ACPI::MADTEntryHeader *) ((size_t) madtEntry + madtEntry->length)
+        ) {
+        basicRenderer.Print("MADT Entry (type: ");
+        basicRenderer.Print(toString((uint64_t) madtEntry->type));
+        basicRenderer.Printl(")");
+
+        if (madtEntry->type == 0) {
+            ACPI::MADTEntryLocalAPIC *localApic = (ACPI::MADTEntryLocalAPIC *) madtEntry;
+            basicRenderer.Print(toString((uint64_t) localApic->processorID));
+        }
+    }
 
     basicRenderer.Printl(toString((uint64_t)bootInfo->runtimeServices->Hdr.Revision));
     EFI::Time time;

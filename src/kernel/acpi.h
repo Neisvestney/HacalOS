@@ -31,7 +31,7 @@ namespace ACPI {
     struct MCFGHeader {
         SDTHeader header;
         uint64_t reserved;
-    }__attribute__((packed));
+    } __attribute__((packed));
 
     struct DeviceConfig {
         uint64_t baseAddress;
@@ -40,6 +40,25 @@ namespace ACPI {
         uint8_t endBus;
         uint32_t reserved;
     }__attribute__((packed));
+
+    // Multiple APIC Description Table
+    struct MADTHeader {
+        SDTHeader header;
+        uint32_t localAPICAddress;
+        uint32_t flags;
+    } __attribute__((packed));
+
+    struct MADTEntryHeader {
+        uint8_t type;
+        uint8_t length;
+    } __attribute__((packed));
+
+    struct MADTEntryLocalAPIC {
+        MADTEntryHeader header;
+        uint8_t processorID;
+        uint8_t apicID;
+        uint32_t flags;
+    } __attribute__((packed));
 
     void *FindTable(SDTHeader *sdtHeader, char *signature);
 }
