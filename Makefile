@@ -10,20 +10,22 @@ endif
 all: os.iso
 
 loader:
-	$(MAKE) -C src/bootloader
+	#$(MAKE) -C src/bootloader
+	cargo build -p bootloader --target x86_64-unknown-uefi
 
-kernel:
-	$(MAKE) DEBUG=$(DEBUG) -C src/kernel
+#kernel:
+#	$(MAKE) DEBUG=$(DEBUG) -C src/kernel
 
-os.img: loader kernel
+os.img: loader
+	mkdir -p $(OUT)
 	dd if=/dev/zero of=$(OUT)/os.img bs=1k count=1440
 	mformat -i  $(OUT)/os.img -f 1440 ::
 	mmd -i  $(OUT)/os.img ::/EFI
 	mmd -i  $(OUT)/os.img ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/BOOTX64.EFI ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  $(OUT)/kernel/kernel.elf ::
-	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-light16.psf ::
-	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-ext-light16.psf ::
+	mcopy -i  $(OUT)/os.img  ./target/x86_64-unknown-uefi/debug/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
+#	mcopy -i  $(OUT)/os.img  $(OUT)/kernel/kernel.elf ::
+#	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-light16.psf ::
+#	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-ext-light16.psf ::
 
 os.iso: os.img
 	@mkdir -p $(OUT)/iso
@@ -40,5 +42,5 @@ run: os.img
 
 
 clean:
-	$(MAKE) -C src/bootloader clean
+	#$(MAKE) -C src/bootloader clean
 	rm -rf $(OUT)
