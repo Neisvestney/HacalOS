@@ -1,0 +1,9 @@
+[build]
+target = "x86_64-hacal_os.json"
+
+[unstable]
+build-std-features = ["compiler-builtins-mem"]
+build-std = ["core", "compiler_builtins"]
+
+[target.'cfg(target_os = "none")']
+rustflags = ["-C", "link-arg=-Tlinker.ld"]

@@ -9,21 +9,20 @@ endif
 
 all: os.iso
 
-loader:
-	#$(MAKE) -C src/bootloader
-	cargo build -p bootloader --target x86_64-unknown-uefi
+bootloader:
+	cd src/bootloader && cargo build
 
-#kernel:
-#	$(MAKE) DEBUG=$(DEBUG) -C src/kernel
+kernel:
+	cd src/kernel && cargo build
 
-os.img: loader
+os.img: bootloader kernel
 	mkdir -p $(OUT)
 	dd if=/dev/zero of=$(OUT)/os.img bs=1k count=1440
 	mformat -i  $(OUT)/os.img -f 1440 ::
 	mmd -i  $(OUT)/os.img ::/EFI
 	mmd -i  $(OUT)/os.img ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  ./target/x86_64-unknown-uefi/debug/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
-#	mcopy -i  $(OUT)/os.img  $(OUT)/kernel/kernel.elf ::
+	mcopy -i  $(OUT)/os.img  ./src/bootloader/target/x86_64-unknown-uefi/debug/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
+	mcopy -i  $(OUT)/os.img  src/kernel/target/x86_64-hacal_os/debug/kernel ::kernel.elf
 #	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-light16.psf ::
 #	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-ext-light16.psf ::
 
