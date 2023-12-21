@@ -12,3 +12,4 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+bootloader-structs = {path = "../bootloader-structs"}

@@ -1,10 +1,13 @@
 #![no_main]
 #![no_std]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
+use bootloader_structs::BootInfo;
 use log::{error, info};
 use uefi::prelude::*;
-use uefi::proto::console::gop::GraphicsOutput;
-use uefi::Result;
+use uefi_services::println;
 
 #[entry]
 fn main(_image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
@@ -14,7 +17,11 @@ fn main(_image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
 
     let bs = system_table.boot_services();
 
-    let gop_handle = bs.get_handle_for_protocol::<GraphicsOutput>().unwrap();
+    let a = Box::new(BootInfo {
+        i: 2
+    });
+
+    info!("{}", a.i);
 
     bs.stall(10_000_000);
 
