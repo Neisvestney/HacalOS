@@ -13,3 +13,4 @@ panic = "abort"
 
 [dependencies]
 bootloader-structs = {path = "../bootloader-structs"}
+x86_64 = "0.14.11"

@@ -4,26 +4,142 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use bootloader_structs::BootInfo;
+use core::{mem, ptr};
+use bootloader_structs::{BootInfo, KernelMainFunction};
+use elf_rs::{Elf, ElfFile, ProgramType};
 use log::{error, info};
+use uefi::fs::FileSystem;
 use uefi::prelude::*;
-use uefi_services::println;
+use uefi::proto::media::fs::SimpleFileSystem;
+use uefi::table::boot::{AllocateType, MemoryType};
+use x86_64::{PhysAddr, VirtAddr};
+use x86_64::registers::control::Cr3;
+use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame};
+use x86_64::structures::paging::page::Size4KiB;
+
+struct UefiPageAllocator<'a> {
+    bt: &'a BootServices,
+}
+
+unsafe impl<'a> FrameAllocator<Size4KiB> for UefiPageAllocator<'a> {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        match self.bt.allocate_pages(AllocateType::AnyPages, MemoryType::LOADER_DATA, 1) {
+            Ok(addr) => Some(PhysFrame::from_start_address(PhysAddr::new(addr)).unwrap()),
+            Err(_) => None,
+        }
+    }
+}
+
+impl<'a> FrameDeallocator<Size4KiB> for UefiPageAllocator<'a> {
+    unsafe fn deallocate_frame(&mut self, frame: PhysFrame<Size4KiB>) {
+        self.bt.free_pages(frame.start_address().as_u64(), 1).unwrap();
+    }
+}
+
 
 #[entry]
-fn main(_image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
+fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut system_table).unwrap();
     info!("Hello world!");
     error!("Hello world!");
 
-    let bs = system_table.boot_services();
-
-    let a = Box::new(BootInfo {
-        i: 2
+    let boot_info = Box::new(BootInfo {
+        i: 99,
     });
 
-    info!("{}", a.i);
+    // BootServices borrow
+    let (kernel_main, level_4_table_flags, new_page_table_addr) = {
+        let bt = system_table.boot_services();
 
-    bs.stall(10_000_000);
+        // Setup new page table as copy of current
+        let (level_4_table, level_4_table_flags) = Cr3::read();
+        let current_page_table = level_4_table.start_address().as_u64() as *mut PageTable;
+
+        let new_page_table_addr = bt.allocate_pages(AllocateType::AnyPages, MemoryType::LOADER_DATA, 1).unwrap();
+        let new_page_table_table = new_page_table_addr as *mut PageTable;
+
+        unsafe {
+            ptr::copy(current_page_table, new_page_table_table, 1);
+        }
+        let new_page_table_table = unsafe { &mut *new_page_table_table };
+
+        let mut offset_page_table = unsafe { OffsetPageTable::new(new_page_table_table, VirtAddr::new(0)) };
+
+        // Init SimpleFileSystem
+        let fs_handle = bt.get_handle_for_protocol::<SimpleFileSystem>().unwrap();
+        let fs = bt.open_protocol_exclusive::<SimpleFileSystem>(fs_handle).unwrap();
+        let mut fs = FileSystem::new(fs);
+
+        // Loader kernel binary into memory
+        let kernel_main = {
+            let mut allocator = UefiPageAllocator { bt };
+            load_kernel(&mut fs, bt, &mut offset_page_table, &mut allocator)
+        };
+
+        (kernel_main, level_4_table_flags, new_page_table_addr)
+    };
+
+    let boot_info_ptr: *const BootInfo = &*boot_info;
+    info!("{:#x}", boot_info_ptr as u64);
+    let _ = system_table.exit_boot_services(MemoryType::LOADER_DATA);
+    unsafe {
+        Cr3::write(PhysFrame::from_start_address(PhysAddr::new(new_page_table_addr)).unwrap(), level_4_table_flags);
+        kernel_main(&boot_info);
+    }
 
     Status::SUCCESS
+}
+
+fn load_kernel(fs: &mut FileSystem, bt: &BootServices, mapper: &mut impl Mapper<Size4KiB>, allocator: &mut impl FrameAllocator<Size4KiB>) -> KernelMainFunction {
+    let kernel_file = fs.read(cstr16!("kernel.elf")).unwrap();
+
+    let elf = Elf::from_bytes(&kernel_file).unwrap();
+
+    info!("Kernel entry point: {:#x}", elf.entry_point());
+
+    for p in elf.program_header_iter() {
+        if p.ph_type() == ProgramType::LOAD {
+            let pages_count = (p.memsz() + 0x1000 - 1) / 0x1000;
+            let allocated_pages_addr = bt.allocate_pages(AllocateType::AnyPages, MemoryType::LOADER_DATA, pages_count as usize).unwrap();
+            let content = p.content().unwrap();
+            copy_to_physical_address(content, allocated_pages_addr);
+
+            for i in 0..pages_count {
+                let physical_addr = allocated_pages_addr + (i * 0x1000);
+                let virtual_addr = p.paddr() + (i * 0x1000);
+                info!("Map {:#x} to {:#x}", physical_addr, virtual_addr);
+                let page = Page::<Size4KiB>::containing_address(VirtAddr::new(virtual_addr));
+                let frame = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(physical_addr));
+                info!("Map {:?} to {:?}", page, frame);
+                unsafe {
+                    if let Ok(r) = mapper.map_to(
+                        page,
+                        frame,
+                        PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
+                        allocator,
+                    ) {
+                        r.flush()
+                    }
+                }
+            }
+        }
+    }
+
+    let ptr = elf.entry_point() as *const ();
+    let function_ptr: KernelMainFunction = unsafe { mem::transmute(ptr) };
+
+    info!("Kernel loaded");
+
+    function_ptr
+}
+
+fn copy_to_physical_address(src: &[u8], physical_address: u64) {
+    let dest_ptr = physical_address as *mut u8;
+
+    unsafe {
+        for (offset, byte) in src.iter().enumerate() {
+            let ptr = dest_ptr.add(offset);
+            ptr.write(*byte);
+        }
+    }
 }

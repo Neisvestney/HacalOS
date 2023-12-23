@@ -17,8 +17,8 @@ kernel:
 
 os.img: bootloader kernel
 	mkdir -p $(OUT)
-	dd if=/dev/zero of=$(OUT)/os.img bs=1k count=1440
-	mformat -i  $(OUT)/os.img -f 1440 ::
+	dd if=/dev/zero of=$(OUT)/os.img bs=1k count=2880
+	mformat -i  $(OUT)/os.img -f 2880 ::
 	mmd -i  $(OUT)/os.img ::/EFI
 	mmd -i  $(OUT)/os.img ::/EFI/BOOT
 	mcopy -i  $(OUT)/os.img  ./src/bootloader/target/x86_64-unknown-uefi/debug/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
