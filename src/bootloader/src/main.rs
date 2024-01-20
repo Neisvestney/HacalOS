@@ -5,11 +5,12 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use core::{mem, ptr};
-use bootloader_structs::{BootInfo, KernelMainFunction};
+use bootloader_structs::{BootInfo, GopInfo, KernelMainFunction};
 use elf_rs::{Elf, ElfFile, ProgramType};
 use log::{error, info};
 use uefi::fs::FileSystem;
 use uefi::prelude::*;
+use uefi::proto::console::gop::{GraphicsOutput};
 use uefi::proto::media::fs::SimpleFileSystem;
 use uefi::table::boot::{AllocateType, MemoryType};
 use x86_64::{PhysAddr, VirtAddr};
@@ -40,15 +41,9 @@ impl<'a> FrameDeallocator<Size4KiB> for UefiPageAllocator<'a> {
 #[entry]
 fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut system_table).unwrap();
-    info!("Hello world!");
-    error!("Hello world!");
-
-    let boot_info = Box::new(BootInfo {
-        i: 99,
-    });
 
     // BootServices borrow
-    let (kernel_main, level_4_table_flags, new_page_table_addr) = {
+    let (kernel_main, level_4_table_flags, new_page_table_addr, gop) = {
         let bt = system_table.boot_services();
 
         // Setup new page table as copy of current
@@ -76,11 +71,26 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
             load_kernel(&mut fs, bt, &mut offset_page_table, &mut allocator)
         };
 
-        (kernel_main, level_4_table_flags, new_page_table_addr)
+        // Init gop
+        let gop_handle = bt.get_handle_for_protocol::<GraphicsOutput>().unwrap();
+        let mut gop = bt.open_protocol_exclusive::<GraphicsOutput>(gop_handle).unwrap();
+
+        let resolution = gop.current_mode_info().resolution();
+
+        let gop_info = GopInfo {
+            frame_buffer: gop.frame_buffer().as_mut_ptr(),
+            frame_buffer_size: gop.frame_buffer().size(),
+            horizontal_resolution: resolution.0,
+            vertical_resolution: resolution.1
+        };
+
+        (kernel_main, level_4_table_flags, new_page_table_addr, gop_info)
     };
 
-    let boot_info_ptr: *const BootInfo = &*boot_info;
-    info!("{:#x}", boot_info_ptr as u64);
+    let boot_info = Box::new(BootInfo {
+        gop
+    });
+
     let _ = system_table.exit_boot_services(MemoryType::LOADER_DATA);
     unsafe {
         Cr3::write(PhysFrame::from_start_address(PhysAddr::new(new_page_table_addr)).unwrap(), level_4_table_flags);

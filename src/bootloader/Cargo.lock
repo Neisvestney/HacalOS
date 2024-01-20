@@ -42,6 +42,9 @@ dependencies = [
 [[package]]
 name = "bootloader-structs"
 version = "0.1.0"
+dependencies = [
+ "uefi",
+]
 
 [[package]]
 name = "cfg-if"
