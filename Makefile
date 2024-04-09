@@ -1,19 +1,28 @@
 OUT = ./build
 
 DEBUG = 0
+RELEASE = 0
 QEMU_DEBUG_FLAGS =
+CARGO_RELEASE_FLAGS =
+CARGO_DIR = debug
 ifeq ($(DEBUG),1)
 	DEBUG = 1
     QEMU_DEBUG_FLAGS = -s -S
 endif
 
+ifeq ($(RELEASE),1)
+	RELEASE = 1
+    CARGO_RELEASE_FLAGS = --release
+    CARGO_DIR = release
+endif
+
 all: os.iso
 
 bootloader:
-	cd src/bootloader && cargo build
+	cd src/bootloader && cargo build $(CARGO_RELEASE_FLAGS)
 
 kernel:
-	cd src/kernel && cargo build
+	cd src/kernel && cargo build $(CARGO_RELEASE_FLAGS)
 
 os.img: bootloader kernel
 	mkdir -p $(OUT)
@@ -21,10 +30,10 @@ os.img: bootloader kernel
 	mformat -i  $(OUT)/os.img -f 2880 ::
 	mmd -i  $(OUT)/os.img ::/EFI
 	mmd -i  $(OUT)/os.img ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  ./src/bootloader/target/x86_64-unknown-uefi/debug/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i  $(OUT)/os.img  src/kernel/target/x86_64-hacal_os/debug/kernel ::kernel.elf
+	mcopy -i  $(OUT)/os.img  ./src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
+	mcopy -i  $(OUT)/os.img  src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel ::kernel.elf
 #	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-light16.psf ::
-#	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-ext-light16.psf ::
+	mcopy -i  $(OUT)/os.img  ./src/files/spleen-8x16-v2.psf ::
 
 os.iso: os.img
 	@mkdir -p $(OUT)/iso

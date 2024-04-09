@@ -13,6 +13,7 @@ use uefi::prelude::*;
 use uefi::proto::console::gop::{GraphicsOutput};
 use uefi::proto::media::fs::SimpleFileSystem;
 use uefi::table::boot::{AllocateType, MemoryType};
+use uefi_services::println;
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame};
@@ -43,7 +44,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut system_table).unwrap();
 
     // BootServices borrow
-    let (kernel_main, level_4_table_flags, new_page_table_addr, gop) = {
+    let (kernel_main, level_4_table_flags, new_page_table_addr, gop, font) = {
         let bt = system_table.boot_services();
 
         // Setup new page table as copy of current
@@ -84,11 +85,14 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
             vertical_resolution: resolution.1
         };
 
-        (kernel_main, level_4_table_flags, new_page_table_addr, gop_info)
+        let font = fs.read(cstr16!("spleen-8x16-v2.psf")).unwrap();
+
+        (kernel_main, level_4_table_flags, new_page_table_addr, gop_info, font)
     };
 
     let boot_info = Box::new(BootInfo {
-        gop
+        gop,
+        font: font.as_slice(),
     });
 
     let _ = system_table.exit_boot_services(MemoryType::LOADER_DATA);
@@ -109,6 +113,7 @@ fn load_kernel(fs: &mut FileSystem, bt: &BootServices, mapper: &mut impl Mapper<
 
     for p in elf.program_header_iter() {
         if p.ph_type() == ProgramType::LOAD {
+            info!("Mapping {:x?}", p);
             let pages_count = (p.memsz() + 0x1000 - 1) / 0x1000;
             let allocated_pages_addr = bt.allocate_pages(AllocateType::AnyPages, MemoryType::LOADER_DATA, pages_count as usize).unwrap();
             let content = p.content().unwrap();

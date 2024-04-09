@@ -5,24 +5,11 @@ SECTIONS
 {
     . = 0xFFFF810000000000;
 
-     . = ALIGN(1K);
     .text : {
-        *(.text*)
+      *(.text*)
+      *(.rodata*)
+      *(.data*)
+      *(.got*)
+      *(.bss)
     }
-
-    . = ALIGN(1K);
-    .rodata : {
-        *(.rodata*)
-    }
-
-     . = ALIGN(1K);
-    .data : {
-        *(.data*)
-    }
-
-     . = ALIGN(1K);
-	.bss : {
-		*(COMMON)
-		*(.bss)
-	}
 }

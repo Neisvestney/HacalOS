@@ -5,25 +5,26 @@ mod render;
 
 use core::panic::PanicInfo;
 use bootloader_structs::BootInfo;
+use psf2::Font;
 use x86_64::instructions::hlt;
-
-static HELLO: &[u8] = b"Hello World!";
+use crate::render::color::Color;
+use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 
 #[no_mangle]
 pub extern "sysv64" fn _start(boot_info: &BootInfo) -> usize {
-    test();
+    let font = Font::new(boot_info.font).unwrap();
+    let mut renderer = FrameBufferRenderer::new(&boot_info.gop, font);
 
-    unsafe {
-        boot_info.gop.frame_buffer.cast::<u32>().write_volatile(0xFFFFFF);
+    for x in 0..boot_info.gop.horizontal_resolution {
+        for y in 0..boot_info.gop.vertical_resolution {
+            renderer.put_pixel(x, y, Color::from_rgb(10, 10, 10))
+        }
     }
+
+    renderer.put_string("Goodbye, cruel world...", 20, 20, Color::from_rgb(255, 255, 255));
 
     loop { hlt(); }
 }
-
-fn test() {
-
-}
-
 
 /// This function is called on panic.
 #[panic_handler]

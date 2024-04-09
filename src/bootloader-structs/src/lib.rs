@@ -4,8 +4,9 @@
 pub type KernelMainFunction = extern "sysv64" fn(boot_info: &BootInfo) -> usize;
 
 #[repr(C)]
-pub struct BootInfo {
+pub struct BootInfo<'a> {
     pub gop: GopInfo,
+    pub font: &'a[u8],
 }
 
 #[repr(C)]

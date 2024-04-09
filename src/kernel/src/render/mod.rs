@@ -1,1 +1,2 @@
-mod frame_buffer_renderer;
+pub mod frame_buffer_renderer;
+pub mod color;

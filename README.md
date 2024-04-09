@@ -17,3 +17,7 @@ Tested on: WSL Ubuntu 20.04.4 LTS
 - Install all required dependencies:
   - Apt: `sudo apt install qemu-kvm ovmf`
 - Run qemu `make run`
+## Debug with CLion and gdb
+- Add new WSL toolchain (`File | Settings | Build, Execution, Deployment | Toolchains`) with custom gdb path `\home\[user]\.cargo\bin\rust-gdb` 
+- Add remote debug configuration with this toolchain
+- Run `make DEBUG=1 run` and then run debug configuration in CLion

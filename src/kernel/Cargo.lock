@@ -26,6 +26,7 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "bootloader-structs",
+ "psf2",
  "x86_64",
 ]
 
@@ -43,6 +44,12 @@ checksum = "75cb1540fadbd5b8fbccc4dddad2734eba435053f725621c070711a14bb5f4b8"
 dependencies = [
  "unicode-ident",
 ]
+
+[[package]]
+name = "psf2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db6e6132ee58c113ff86d61c49cb934dd45b3b59971442d0f9e982e62dff5457"
 
 [[package]]
 name = "ptr_meta"
