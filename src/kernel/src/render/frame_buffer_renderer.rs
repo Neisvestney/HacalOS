@@ -49,7 +49,7 @@ impl FrameBufferRenderer {
 
     pub fn vertical_shift(&mut self, rows: usize, fill_color: Color) {
         let buffer_slice = unsafe {
-            core::slice::from_raw_parts_mut(self.frame_buffer.cast::<u32>(), self.vertical_resolution * self.horizontal_resolution * 4)
+            core::slice::from_raw_parts_mut(self.frame_buffer.cast::<u32>(), self.vertical_resolution * self.horizontal_resolution)
         };
 
         let shift = rows * self.horizontal_resolution;

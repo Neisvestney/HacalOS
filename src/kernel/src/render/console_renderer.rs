@@ -31,6 +31,14 @@ impl<'a> ConsoleRenderer<'a> {
         self.frame_buffer_renderer.vertical_resolution / self.font.height() as usize
     }
 
+    pub fn set_foreground_color(&mut self, foreground_color: Color) {
+        self.foreground_color = foreground_color;
+    }
+
+    pub fn set_background_color(&mut self, background_color: Color) {
+        self.background_color = background_color;
+    }
+
     pub fn clear(&mut self) {
         self.point = Point::new(0, 0);
 
@@ -49,7 +57,7 @@ impl<'a> ConsoleRenderer<'a> {
 
         if self.point.y >= self.get_height() {
             self.point.y -= 1;
-            self.frame_buffer_renderer.vertical_shift(self.font.height() as usize + 1, self.background_color);
+            self.frame_buffer_renderer.vertical_shift(self.font.height() as usize, self.background_color);
         }
     }
 
@@ -71,6 +79,8 @@ impl<'a> ConsoleRenderer<'a> {
         }
     }
 }
+
+unsafe impl Send for ConsoleRenderer<'_> {}
 
 impl fmt::Write for ConsoleRenderer<'_> {
     fn write_str(&mut self, s: &str) -> fmt::Result {

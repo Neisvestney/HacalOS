@@ -13,6 +13,6 @@ SECTIONS
       *(.got*)
       *(.eh_frame_hdr*)
       *(.eh_frame*)
-      *(.bss)
+      *(.bss*)
     }
 }
