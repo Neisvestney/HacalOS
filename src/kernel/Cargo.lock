@@ -27,6 +27,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader-structs",
  "psf2",
+ "volatile 0.5.2",
  "x86_64",
 ]
 
@@ -173,6 +174,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "442887c63f2c839b346c192d047a7c87e73d0689c9157b00b53dcc27dd5ea793"
 
 [[package]]
+name = "volatile"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b214e6480cbaa16049d2f256268b51732a8d1e5507ac56392990604c7c71d936"
+
+[[package]]
 name = "x86_64"
 version = "0.14.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,5 +188,5 @@ dependencies = [
  "bit_field",
  "bitflags",
  "rustversion",
- "volatile",
+ "volatile 0.4.6",
 ]

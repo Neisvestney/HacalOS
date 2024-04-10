@@ -14,4 +14,5 @@ panic = "abort"
 [dependencies]
 bootloader-structs = {path = "../bootloader-structs"}
 psf2 = { version = "0.4.0", features = [], default-features = false }
+volatile = "0.5.2"
 x86_64 = "0.14.11"
