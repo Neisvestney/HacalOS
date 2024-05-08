@@ -50,19 +50,12 @@ pub extern "sysv64" fn _start(boot_info: &'static BootInfo) -> usize {
 
     println!("Hello before interrupt");
     x86_64::instructions::interrupts::int3();
-    // unsafe {
-    //     asm!("int $0x80");
-    // }
+    unsafe {
+        asm!("int $0x80", options(nomem, nostack));
+    }
     println!("Hello after interrupt");
 
-    stack_overflow();
-
     loop { hlt(); }
-}
-
-#[allow(unconditional_recursion)]
-fn stack_overflow() {
-    stack_overflow(); // for each recursion, the return address is pushed
 }
 
 /// This function is called on panic.

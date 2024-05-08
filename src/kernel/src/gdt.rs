@@ -43,8 +43,6 @@ pub fn init_gdt() {
     unsafe {
         CS::set_reg(GDT.1.code_selector);
         SS::set_reg(GDT.1.data_selector);
-        DS::set_reg(GDT.1.data_selector);
-        FS::set_reg(GDT.1.data_selector);
         load_tss(GDT.1.tss_selector);
     }
 }
