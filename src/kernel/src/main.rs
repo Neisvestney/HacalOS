@@ -1,8 +1,12 @@
+#![feature(abi_x86_interrupt)]
 #![no_std]
 #![no_main]
 
 mod render;
+mod interrupts;
+mod gdt;
 
+use core::arch::asm;
 use core::panic::PanicInfo;
 use bootloader_structs::BootInfo;
 use psf2::Font;
@@ -12,12 +16,15 @@ use crate::render::console_renderer::ConsoleRenderer;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use spin::{Mutex, Once};
 use core::fmt::Write;
+use crate::gdt::init_gdt;
+use crate::interrupts::init_idt;
 
 static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
 
 #[no_mangle]
 pub extern "sysv64" fn _start(boot_info: &'static BootInfo) -> usize {
+    x86_64::instructions::interrupts::disable();
     BOOT_INFO.call_once(|| boot_info.clone());
     let boot_info = BOOT_INFO.get().unwrap();
 
@@ -36,20 +43,33 @@ pub extern "sysv64" fn _start(boot_info: &'static BootInfo) -> usize {
         (width, height)
     };
 
-    for i in 0..101 {
-        println!("Does this works? {i} {}x{}", width, height);
-    }
+    init_gdt();
+    init_idt();
 
-    panic!("Goodbye, cruel world...");
+    x86_64::instructions::interrupts::enable();
+
+    println!("Hello before interrupt");
+    x86_64::instructions::interrupts::int3();
+    // unsafe {
+    //     asm!("int $0x80");
+    // }
+    println!("Hello after interrupt");
+
+    stack_overflow();
 
     loop { hlt(); }
+}
+
+#[allow(unconditional_recursion)]
+fn stack_overflow() {
+    stack_overflow(); // for each recursion, the return address is pushed
 }
 
 /// This function is called on panic.
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     let mut console = CONSOLE.get().unwrap().lock();
-    console.set_foreground_color(Color::from_rgb(200, 0, 0));
+    console.set_foreground_color(Color::from_rgb(200, 100, 100));
     write!(console, "{}", _info).unwrap();
 
     loop {}

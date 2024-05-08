@@ -26,14 +26,23 @@ kernel:
 
 os.img: bootloader kernel
 	mkdir -p $(OUT)
-	dd if=/dev/zero of=$(OUT)/os.img bs=1k count=2880
-	mformat -i  $(OUT)/os.img -f 2880 ::
-	mmd -i  $(OUT)/os.img ::/EFI
-	mmd -i  $(OUT)/os.img ::/EFI/BOOT
-	mcopy -i  $(OUT)/os.img  ./src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i  $(OUT)/os.img  src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel ::kernel.elf
-#	mcopy -i  $(OUT)/os.img  $(OUT)/bootloader/zap-light16.psf ::
-	mcopy -i  $(OUT)/os.img  ./src/files/spleen-8x16-v2.psf ::
+
+	dd if=/dev/zero of=$(OUT)/os.img bs=512 count=93750
+	parted $(OUT)/os.img -s -a minimal mklabel gpt
+	parted $(OUT)/os.img -s -a minimal mkpart EFI FAT16 2048s 93716s
+	parted $(OUT)/os.img -s -a minimal toggle 1 boot
+
+	dd if=/dev/zero of=$(OUT)/part.img bs=512 count=91669
+	mformat -i $(OUT)/part.img -h 32 -t 32 -n 64 -c 1
+
+	mmd -i  $(OUT)/part.img ::/EFI
+	mmd -i  $(OUT)/part.img ::/EFI/BOOT
+	mcopy -i  $(OUT)/part.img  ./src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.efi ::/EFI/BOOT/BOOTX64.EFI
+	mcopy -i  $(OUT)/part.img  src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel ::kernel.elf
+#	mcopy -i  $(OUT)/part.img  $(OUT)/bootloader/zap-light16.psf ::
+	mcopy -i  $(OUT)/part.img  ./src/files/spleen-8x16-v2.psf ::
+
+	dd if=$(OUT)/part.img of=$(OUT)/os.img bs=512 count=91669 seek=2048 conv=notrunc
 
 os.iso: os.img
 	@mkdir -p $(OUT)/iso
