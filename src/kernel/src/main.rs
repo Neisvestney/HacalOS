@@ -19,7 +19,7 @@ use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use spin::{Mutex, Once};
 use core::fmt::Write;
 use crate::gdt::init_gdt;
-use crate::interrupts::init_idt;
+use crate::interrupts::{init_idt, init_pics};
 
 static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
@@ -47,6 +47,7 @@ pub extern "sysv64" fn _start(boot_info: &'static BootInfo) -> usize {
 
     init_gdt();
     init_idt();
+    init_pics();
 
     x86_64::instructions::interrupts::enable();
 
