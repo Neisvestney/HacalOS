@@ -1,9 +1,27 @@
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
-use crate::{gdt, println};
+use crate::{gdt, print, println};
 
 pub const SYSCALL_API_CALL: usize = 0x80;
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum InterruptIndex {
+    Timer = PIC_1_OFFSET,
+}
+
+impl InterruptIndex {
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    fn as_usize(self) -> usize {
+        usize::from(self.as_u8())
+    }
+}
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = unsafe {
@@ -15,6 +33,8 @@ lazy_static! {
          .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         
         idt[SYSCALL_API_CALL].set_handler_fn(syscall_api_call_handler);
+
+        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(pic_timer_handler);
         
         idt
     };
@@ -24,18 +44,22 @@ pub fn init_idt() {
     IDT.load();
 }
 
-pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
-
 pub static PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 pub fn init_pics() {
     unsafe {
         let mut pics = PICS.lock();
-        // pics.write_masks(0b00000000, 0b00000000);
-        pics.write_masks(0b11111111, 0b11111111);
+        pics.write_masks(0b00000000, 0b00000000);
         pics.initialize();
     };
+}
+
+extern "x86-interrupt" fn pic_timer_handler(stack_frame: InterruptStackFrame) {
+    print!(".");
+    
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+    }
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame)
