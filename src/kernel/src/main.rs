@@ -5,6 +5,8 @@
 mod render;
 mod interrupts;
 mod gdt;
+mod serial;
+mod print;
 
 use core::arch::asm;
 use core::panic::PanicInfo;
@@ -61,9 +63,12 @@ pub extern "sysv64" fn _start(boot_info: &'static BootInfo) -> usize {
 /// This function is called on panic.
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    let mut console = CONSOLE.get().unwrap().lock();
-    console.set_foreground_color(Color::from_rgb(200, 100, 100));
-    write!(console, "{}", _info).unwrap();
+    x86_64::instructions::interrupts::disable();
+    {
+        let mut console = CONSOLE.get().unwrap().lock();
+        console.set_foreground_color(Color::from_rgb(200, 100, 100));
+    }
+    println!("{}", _info);
 
     loop {}
 }
