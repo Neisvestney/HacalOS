@@ -39,6 +39,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader-structs",
  "lazy_static",
+ "pc-keyboard",
  "pic8259",
  "psf2",
  "spin 0.9.8",
@@ -71,6 +72,12 @@ name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+
+[[package]]
+name = "pc-keyboard"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed089a1fbffe3337a1a345501c981f1eb1e47e69de5a40e852433e12953c3174"
 
 [[package]]
 name = "pic8259"

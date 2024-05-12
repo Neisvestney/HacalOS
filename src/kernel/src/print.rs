@@ -1,9 +1,9 @@
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => (
+    ($($arg:tt)*) => ({
         $crate::render::print::_print(format_args!($($arg)*));
         $crate::serial::_print(format_args!($($arg)*));
-    );
+    });
 }
 
 #[macro_export]

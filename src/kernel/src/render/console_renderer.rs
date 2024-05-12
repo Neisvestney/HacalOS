@@ -61,13 +61,21 @@ impl<'a> ConsoleRenderer<'a> {
         }
     }
 
+    pub fn backspace(&mut self) {
+        if (self.point.x > 0) {
+            self.point.x -= 1;
+            self.frame_buffer_renderer.put_char(' ', self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, self.background_color, &self.font);
+        }
+    }
+
     pub fn write_string(&mut self, string: &str) {
         for char in string.chars() {
             match char {
                 '\n' => self.next_line(),
+                '\u{0008}' => self.backspace(),
                 _ => {
                     unsafe {
-                        self.frame_buffer_renderer.put_char_unchecked(char, self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, &self.font);
+                        self.frame_buffer_renderer.put_char(char, self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, self.background_color, &self.font);
                     }
 
                     self.point.x += 1;

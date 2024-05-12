@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use pc_keyboard::ScancodeSet1;
 use pic8259::ChainedPics;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use crate::{gdt, print, println};
@@ -11,6 +12,7 @@ pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
+    Keyboard,
 }
 
 impl InterruptIndex {
@@ -35,6 +37,7 @@ lazy_static! {
         idt[SYSCALL_API_CALL].set_handler_fn(syscall_api_call_handler);
 
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(pic_timer_handler);
+        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(pic_keyboard_handler);
         
         idt
     };
@@ -49,16 +52,48 @@ pub static PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe { ChainedPic
 pub fn init_pics() {
     unsafe {
         let mut pics = PICS.lock();
-        pics.write_masks(0b00000000, 0b00000000);
+        pics.write_masks(0b11111000, 0b11111111);
         pics.initialize();
     };
 }
 
 extern "x86-interrupt" fn pic_timer_handler(stack_frame: InterruptStackFrame) {
-    print!(".");
+    // print!(".");
     
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+    }
+}
+
+extern "x86-interrupt" fn pic_keyboard_handler(stack_frame: InterruptStackFrame) {
+    use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
+    use spin::Mutex;
+    use x86_64::instructions::port::Port;
+
+    lazy_static! {
+        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = {
+             let s = ScancodeSet1::new();
+             Mutex::new(Keyboard::new(s, layouts::Us104Key, HandleControl::Ignore))
+        };
+    }
+
+    let mut keyboard = KEYBOARD.lock();
+    let mut port = Port::new(0x60);
+
+    let scancode: u8 = unsafe { port.read() };
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(character) => print!("{}", character),
+                // DecodedKey::RawKey(key) => print!("{:?}", key),
+                _ => {}
+            }
+        }
+    }
+
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
 }
 

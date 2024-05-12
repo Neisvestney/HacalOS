@@ -35,14 +35,12 @@ impl FrameBufferRenderer {
         }
     }
 
-    pub unsafe fn put_char_unchecked(&mut self, char: char, x: usize, y: usize, color: Color, font: &Font<&[u8]>) {
+    pub fn put_char(&mut self, char: char, x: usize, y: usize, foreground_color: Color, background_color: Color, font: &Font<&[u8]>) {
         let glyph = font.get_ascii(char as u8).unwrap_or(font.get_ascii(0x0).unwrap());
 
         for (yo, row) in glyph.enumerate() {
             for (xo, flag) in row.enumerate() {
-                if flag {
-                    self.put_pixel(x + xo, y + yo, color);
-                }
+                self.put_pixel(x + xo, y + yo, if flag { foreground_color } else { background_color });
             }
         }
     }
@@ -63,10 +61,10 @@ impl FrameBufferRenderer {
         }
     }
 
-    pub unsafe fn put_string_unchecked(&mut self, string: &str, x: usize, y: usize, color: Color, font: &Font<&[u8]>) {
-        let char_width = font.width();
-        for (i, char) in string.chars().enumerate() {
-            self.put_char_unchecked(char, x + (i * char_width as usize * 4), y, color, font);
-        }
-    }
+    // pub fn put_string(&mut self, string: &str, x: usize, y: usize, foreground_color: Color, background_color: Color, font: &Font<&[u8]>) {
+    //     let char_width = font.width();
+    //     for (i, char) in string.chars().enumerate() {
+    //         self.put_char(char, x + (i * char_width as usize * 4), y, foreground_color, background_color, font);
+    //     }
+    // }
 }
