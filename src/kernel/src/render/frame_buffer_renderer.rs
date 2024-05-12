@@ -2,6 +2,7 @@ use core::ptr;
 use bootloader_structs::GopInfo;
 use psf2::Font;
 use crate::render::color::Color;
+use crate::render::console_renderer::ConsoleRenderer;
 
 pub struct FrameBufferRenderer {
     pub frame_buffer: *mut u8,
@@ -68,3 +69,5 @@ impl FrameBufferRenderer {
     //     }
     // }
 }
+
+unsafe impl Send for FrameBufferRenderer {}

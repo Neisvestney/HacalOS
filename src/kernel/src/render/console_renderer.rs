@@ -74,9 +74,7 @@ impl<'a> ConsoleRenderer<'a> {
                 '\n' => self.next_line(),
                 '\u{0008}' => self.backspace(),
                 _ => {
-                    unsafe {
-                        self.frame_buffer_renderer.put_char(char, self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, self.background_color, &self.font);
-                    }
+                    self.frame_buffer_renderer.put_char(char, self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, self.background_color, &self.font);
 
                     self.point.x += 1;
                     if self.point.x >= self.get_width() {
@@ -87,8 +85,6 @@ impl<'a> ConsoleRenderer<'a> {
         }
     }
 }
-
-unsafe impl Send for ConsoleRenderer<'_> {}
 
 impl fmt::Write for ConsoleRenderer<'_> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
