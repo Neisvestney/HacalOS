@@ -1,19 +1,25 @@
 #![no_std]
 
-#[cfg(target_arch = "x86_64")]
-pub type KernelMainFunction = extern "sysv64" fn(boot_info: &BootInfo) -> usize;
+use uefi::prelude::{RuntimeServices, SystemTable};
+use uefi::table::boot::MemoryMap;
+use uefi::table::Runtime;
 
-#[repr(C)]
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[cfg(target_arch = "x86_64")]
+pub type KernelMainFunction = extern "sysv64" fn(boot_info: BootInfo<'static>) -> usize;
+
+#[derive(Debug)]
 pub struct BootInfo<'a> {
     pub gop: GopInfo,
-    pub font: &'a[u8],
+    pub font: &'a [u8],
+    pub frame_allocator_buffer: &'static mut [u8],
+    pub memory_map: Option<MemoryMap<'static>>,
+    pub runtime_system_table: Option<SystemTable<Runtime>>,
 }
 
 unsafe impl Send for BootInfo<'_> {}
+
 unsafe impl Sync for BootInfo<'_> {}
 
-#[repr(C)]
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct GopInfo {
     pub frame_buffer: *mut u8,
@@ -23,4 +29,5 @@ pub struct GopInfo {
 }
 
 unsafe impl Send for GopInfo {}
+
 unsafe impl Sync for GopInfo {}

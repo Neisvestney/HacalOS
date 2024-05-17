@@ -4,7 +4,8 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use core::{mem, ptr};
+use alloc::vec::Vec;
+use core::{mem, ptr, slice};
 use bootloader_structs::{BootInfo, GopInfo, KernelMainFunction};
 use elf_rs::{Elf, ElfFile, ProgramType};
 use log::{error, info};
@@ -44,7 +45,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut system_table).unwrap();
 
     // BootServices borrow
-    let (kernel_main, level_4_table_flags, new_page_table_addr, gop, font) = {
+    let (kernel_main, level_4_table_flags, new_page_table_addr, gop, font, frame_allocator_buffer) = {
         let bt = system_table.boot_services();
 
         // Setup new page table as copy of current
@@ -87,18 +88,39 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
 
         let font = fs.read(cstr16!("spleen-8x16-v2.psf")).unwrap();
 
-        (kernel_main, level_4_table_flags, new_page_table_addr, gop_info, font)
+        // Memory map things
+        let memory_map_size = bt.memory_map_size();
+        let memory_map_buffer_size = memory_map_size.map_size + memory_map_size.entry_size * 3;
+        let memory_map_buffer=  bt.allocate_pool(MemoryType::LOADER_DATA, memory_map_buffer_size).unwrap();
+        let memory_map_buffer = unsafe { slice::from_raw_parts_mut(memory_map_buffer, memory_map_buffer_size) };
+        let memory_map = bt.memory_map(memory_map_buffer).unwrap();
+        let last_memory_entry = memory_map.entries().last().unwrap();
+        let total_memory_page_count = last_memory_entry.phys_start / 4096 + last_memory_entry.page_count;
+        let frame_allocator_buffer_size = (total_memory_page_count as usize / 8) + 1;
+        let frame_allocator_buffer = bt.allocate_pool(MemoryType::LOADER_DATA, frame_allocator_buffer_size).unwrap();
+        let frame_allocator_buffer= unsafe { slice::from_raw_parts_mut(frame_allocator_buffer, frame_allocator_buffer_size) };
+
+        (kernel_main, level_4_table_flags, new_page_table_addr, gop_info, font, frame_allocator_buffer)
     };
 
-    let boot_info = Box::new(BootInfo {
+    let mut boot_info = Box::new(BootInfo {
         gop,
-        font: font.as_slice(),
+        font: Vec::leak(font),
+        frame_allocator_buffer,
+        memory_map: None,
+        runtime_system_table: None,
+        //runtime_services: system_table.runtime_services().clone(),
     });
 
-    let _ = system_table.exit_boot_services(MemoryType::LOADER_DATA);
+    let (runtime_system_table, memory_map) = system_table.exit_boot_services(MemoryType::LOADER_DATA);
+
+    boot_info.runtime_system_table = Some(runtime_system_table);
+    
+    boot_info.memory_map = Some(memory_map);
+
     unsafe {
         Cr3::write(PhysFrame::from_start_address(PhysAddr::new(new_page_table_addr)).unwrap(), level_4_table_flags);
-        kernel_main(&boot_info);
+        kernel_main(*boot_info);
     }
 
     Status::SUCCESS
