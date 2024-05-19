@@ -2,10 +2,12 @@ use core::ops::DerefMut;
 use bootloader_structs::{BootInfo, GopInfo, KernelMapEntry};
 use spin::Mutex;
 use uefi::table::boot::{MemoryMap, MemoryType};
-use x86_64::structures::paging::{Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB};
+use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageSize, PageTable, PageTableFlags, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::registers::control::{Cr3, Cr3Flags};
-use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MANAGER, println, VIRTUAL_TO_PHYSICAL_OFFSET};
+use x86_64::structures::paging::mapper::MapToError;
+use x86_64::structures::paging::page::PageRangeInclusive;
+use crate::{CONSOLE, FRAME_ALLOCATOR, HEAD_SIZE, HEAP_START, PAGE_TABLE_MAPPER, println, VIRTUAL_TO_PHYSICAL_OFFSET};
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 
@@ -67,7 +69,7 @@ pub fn init_paging(memory_map: &MemoryMap, kernel_memory_map: &'static [KernelMa
     let new_frame_buffer_pointer = unsafe {relocate_raw_pointer_mut(gop.frame_buffer)};
     let new_frame_buffer_renderer = FrameBufferRenderer::new(&GopInfo {
         frame_buffer: new_frame_buffer_pointer,
-        ..boot_info.gop
+        ..*gop
     });
     { CONSOLE.get().unwrap().lock().set_renderer(new_frame_buffer_renderer); }
 
@@ -77,5 +79,22 @@ pub fn init_paging(memory_map: &MemoryMap, kernel_memory_map: &'static [KernelMa
     }
 
     let page_table_manager = unsafe {OffsetPageTable::new(&mut *relocate_raw_pointer_mut(&mut *page_table), VIRTUAL_TO_PHYSICAL_OFFSET)};
-    PAGE_TABLE_MANAGER.call_once(|| Mutex::new(page_table_manager));
+    PAGE_TABLE_MAPPER.call_once(|| Mutex::new(page_table_manager));
+}
+
+pub fn alloc_memory_range(page_range: PageRangeInclusive<Size4KiB>) -> Result<(), MapToError<Size4KiB>> {
+    let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
+    let mut mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
+
+    for page in page_range {
+        let frame = frame_allocator
+            .allocate_frame()
+            .ok_or(MapToError::FrameAllocationFailed)?;
+        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        unsafe {
+            mapper.map_to(page, frame, flags, frame_allocator.deref_mut())?.flush()
+        };
+    }
+    
+    Ok(())
 }

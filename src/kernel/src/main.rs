@@ -2,41 +2,47 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
+use alloc::vec;
+use alloc::vec::Vec;
+use core::arch::asm;
+use core::ops::{Deref, DerefMut};
+use core::panic::PanicInfo;
+
+use bootloader_structs::BootInfo;
+use psf2::Font;
+use spin::{Mutex, Once};
+use x86_64::instructions::hlt;
+use x86_64::structures::paging::{Mapper, OffsetPageTable};
+use x86_64::VirtAddr;
+
+use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
+use crate::gdt::init_gdt;
+use crate::interrupts::{init_idt, init_pics};
+use crate::memory::heap::init_heap;
+use crate::memory::paging::init_paging;
+use crate::render::color::Color;
+use crate::render::console_renderer::ConsoleRenderer;
+use crate::render::frame_buffer_renderer::FrameBufferRenderer;
+
 mod render;
 mod interrupts;
 mod gdt;
 mod serial;
 mod print;
 mod utils;
-mod alloc;
+mod frame_alloc;
 mod memory;
-
-use core::arch::asm;
-use core::ops::{Deref, DerefMut};
-use core::panic::PanicInfo;
-use bootloader_structs::{BootInfo, GopInfo};
-use psf2::Font;
-use x86_64::instructions::hlt;
-use crate::render::color::Color;
-use crate::render::console_renderer::ConsoleRenderer;
-use crate::render::frame_buffer_renderer::FrameBufferRenderer;
-use spin::{Mutex, Once};
-use uefi::table::boot::MemoryType;
-use x86_64::structures::paging::{Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB};
-use x86_64::{PhysAddr, VirtAddr};
-use x86_64::registers::control::{Cr3, Cr3Flags};
-use crate::alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
-use crate::gdt::init_gdt;
-use crate::interrupts::{init_idt, init_pics};
-use crate::memory::paging::init_paging;
-use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 
 // static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
-static PAGE_TABLE_MANAGER: Once<Mutex<OffsetPageTable>> = Once::new();
+static PAGE_TABLE_MAPPER: Once<Mutex<OffsetPageTable>> = Once::new();
 static FRAME_ALLOCATOR: Once<Mutex<BooleanArrayFrameAllocator>> = Once::new();
 
 const VIRTUAL_TO_PHYSICAL_OFFSET: VirtAddr = unsafe { VirtAddr::new_unsafe(0xFFFF900000000000) };
+const HEAP_START: VirtAddr = unsafe { VirtAddr::new_unsafe(0xFFFF820000000000) };
+const HEAD_SIZE: usize = 100 * 1024;
 
 #[no_mangle]
 pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
@@ -68,6 +74,7 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     init_idt();
     init_pics();
     init_paging(&memory_map, &boot_info.kernel_memory_map, &boot_info.gop);
+    init_heap().unwrap();
 
     x86_64::instructions::interrupts::enable();
 
@@ -77,6 +84,10 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     let runtime_services = unsafe {runtime_system_table.runtime_services()};
 
     println!("Time: {}", runtime_services.get_time().unwrap());
+    
+    let mut a = vec![1, 2, 3];
+    a.push(5);
+    println!("{:?} {:#?}", a, a.as_ptr());
 
     println!("Hello before interrupt");
     x86_64::instructions::interrupts::int3();
