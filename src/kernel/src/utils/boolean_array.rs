@@ -1,4 +1,4 @@
-use core::ops::Index;
+use core::ops::{Index, IndexMut};
 use x86_64::instructions::interrupts::disable;
 
 pub struct BooleanArray<'a> {
@@ -9,7 +9,7 @@ impl<'a> BooleanArray<'a> {
     pub fn new(data: &'a mut [u8]) -> Self {
         BooleanArray { data }
     }
-    
+
     pub fn set_all(&mut self) {
         for i in 0..self.data.len() {
             self.data[i] = 0b11111111;

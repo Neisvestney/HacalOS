@@ -84,6 +84,10 @@ impl<'a> ConsoleRenderer<'a> {
             }
         }
     }
+
+    pub fn set_renderer(&mut self, renderer: FrameBufferRenderer) {
+        self.frame_buffer_renderer = renderer;
+    }
 }
 
 impl fmt::Write for ConsoleRenderer<'_> {

@@ -1,7 +1,7 @@
 use core::ops::Add;
-use uefi::table::boot::{MemoryMap, MemoryType};
+use uefi::table::boot::{AllocateType, MemoryMap, MemoryType};
 use x86_64::PhysAddr;
-use x86_64::structures::paging::{PhysFrame, Size4KiB};
+use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 use crate::{println, serial_println};
 use crate::utils::boolean_array::BooleanArray;
 
@@ -19,7 +19,7 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     pub fn new(buffer: &'a mut [u8]) -> Self {
         let mut boolean_array = BooleanArray::new(buffer);
         boolean_array.set_all();
-        
+
         BooleanArrayFrameAllocator {
             boolean_array,
             point: 0,
@@ -35,12 +35,12 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         for entry in memory_map.entries() {
             self.total_memory_bytes += entry.page_count * 4096;
             self.total_pages_count += entry.page_count;
-            
+
             let last_page_index = entry.phys_start / 4096 + entry.page_count;
             if last_page_index > self.last_page_index {
                 self.last_page_index = last_page_index;
             }
-            
+
             if entry.ty == MemoryType::CONVENTIONAL {
                 self.free_memory_bytes += entry.page_count * 4096;
                 self.unlock_pages(PhysFrame::<Size4KiB>::from_start_address(PhysAddr::new(entry.phys_start)).unwrap(), entry.page_count as usize);
@@ -115,5 +115,27 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
 
     pub fn get_reserved_memory_bytes(&self) -> u64 {
         self.reserved_memory_bytes
+    }
+    
+    pub fn print_stats(&self) {
+        println!("Page count: {}", self.get_total_pages_count());
+        println!("Total memory: {} MiB", self.get_total_memory_bytes() / 1024 / 1024);
+        println!("Free memory: {} KiB", self.get_free_memory_bytes() / 1024 / 1024);
+        println!("Reserved memory: {} MiB", self.get_reserved_memory_bytes() / 1024 / 1024);
+    }
+}
+
+unsafe impl<'a> FrameAllocator<Size4KiB> for BooleanArrayFrameAllocator<'a> {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        match self.request_page() {
+            Ok(addr) => Some(addr),
+            Err(_) => None,
+        }
+    }
+}
+
+impl<'a> FrameDeallocator<Size4KiB> for BooleanArrayFrameAllocator<'a> {
+    unsafe fn deallocate_frame(&mut self, frame: PhysFrame<Size4KiB>) {
+        self.free_page(frame);
     }
 }

@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{mem, ptr, slice};
-use bootloader_structs::{BootInfo, GopInfo, KernelMainFunction};
+use bootloader_structs::{BootInfo, GopInfo, KernelMainFunction, KernelMapEntry};
 use elf_rs::{Elf, ElfFile, ProgramType};
 use log::{error, info};
 use uefi::fs::FileSystem;
@@ -45,7 +45,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut system_table).unwrap();
 
     // BootServices borrow
-    let (kernel_main, level_4_table_flags, new_page_table_addr, gop, font, frame_allocator_buffer) = {
+    let ((kernel_main, kernel_memory_map), level_4_table_flags, new_page_table_addr, gop, font, frame_allocator_buffer) = {
         let bt = system_table.boot_services();
 
         // Setup new page table as copy of current
@@ -68,7 +68,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         let mut fs = FileSystem::new(fs);
 
         // Loader kernel binary into memory
-        let kernel_main = {
+        let kernel = {
             let mut allocator = UefiPageAllocator { bt };
             load_kernel(&mut fs, bt, &mut offset_page_table, &mut allocator)
         };
@@ -94,13 +94,14 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         let memory_map_buffer=  bt.allocate_pool(MemoryType::LOADER_DATA, memory_map_buffer_size).unwrap();
         let memory_map_buffer = unsafe { slice::from_raw_parts_mut(memory_map_buffer, memory_map_buffer_size) };
         let memory_map = bt.memory_map(memory_map_buffer).unwrap();
+        
         let last_memory_entry = memory_map.entries().last().unwrap();
         let total_memory_page_count = last_memory_entry.phys_start / 4096 + last_memory_entry.page_count;
         let frame_allocator_buffer_size = (total_memory_page_count as usize / 8) + 1;
         let frame_allocator_buffer = bt.allocate_pool(MemoryType::LOADER_DATA, frame_allocator_buffer_size).unwrap();
         let frame_allocator_buffer= unsafe { slice::from_raw_parts_mut(frame_allocator_buffer, frame_allocator_buffer_size) };
 
-        (kernel_main, level_4_table_flags, new_page_table_addr, gop_info, font, frame_allocator_buffer)
+        (kernel, level_4_table_flags, new_page_table_addr, gop_info, font, frame_allocator_buffer)
     };
 
     let mut boot_info = Box::new(BootInfo {
@@ -109,6 +110,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         frame_allocator_buffer,
         memory_map: None,
         runtime_system_table: None,
+        kernel_memory_map: Vec::leak(kernel_memory_map),
         //runtime_services: system_table.runtime_services().clone(),
     });
 
@@ -126,12 +128,14 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     Status::SUCCESS
 }
 
-fn load_kernel(fs: &mut FileSystem, bt: &BootServices, mapper: &mut impl Mapper<Size4KiB>, allocator: &mut impl FrameAllocator<Size4KiB>) -> KernelMainFunction {
+fn load_kernel(fs: &mut FileSystem, bt: &BootServices, mapper: &mut impl Mapper<Size4KiB>, allocator: &mut impl FrameAllocator<Size4KiB>) -> (KernelMainFunction, Vec<KernelMapEntry>) {
     let kernel_file = fs.read(cstr16!("kernel.elf")).unwrap();
 
     let elf = Elf::from_bytes(&kernel_file).unwrap();
 
     info!("Kernel entry point: {:#x}", elf.entry_point());
+
+    let mut kernel_memory_map = Vec::<KernelMapEntry>::new();
 
     for p in elf.program_header_iter() {
         if p.ph_type() == ProgramType::LOAD {
@@ -141,13 +145,19 @@ fn load_kernel(fs: &mut FileSystem, bt: &BootServices, mapper: &mut impl Mapper<
             let content = p.content().unwrap();
             copy_to_physical_address(content, allocated_pages_addr);
 
+            kernel_memory_map.push(KernelMapEntry {
+                frame: PhysFrame::from_start_address(PhysAddr::new(allocated_pages_addr)).unwrap(),
+                page: Page::from_start_address(VirtAddr::new(p.paddr())).unwrap(),
+                page_count: pages_count,
+            });
+
             for i in 0..pages_count {
                 let physical_addr = allocated_pages_addr + (i * 0x1000);
                 let virtual_addr = p.paddr() + (i * 0x1000);
-                info!("Map {:#x} to {:#x}", physical_addr, virtual_addr);
+                // info!("Map {:#x} to {:#x}", physical_addr, virtual_addr);
                 let page = Page::<Size4KiB>::containing_address(VirtAddr::new(virtual_addr));
                 let frame = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(physical_addr));
-                info!("Map {:?} to {:?}", page, frame);
+                // info!("Map {:?} to {:?}", page, frame);
                 unsafe {
                     if let Ok(r) = mapper.map_to(
                         page,
@@ -167,7 +177,7 @@ fn load_kernel(fs: &mut FileSystem, bt: &BootServices, mapper: &mut impl Mapper<
 
     info!("Kernel loaded");
 
-    function_ptr
+    (function_ptr, kernel_memory_map)
 }
 
 fn copy_to_physical_address(src: &[u8], physical_address: u64) {
