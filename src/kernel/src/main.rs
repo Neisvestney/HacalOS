@@ -70,11 +70,11 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
         (width, height)
     };
 
+    init_paging(&memory_map, &boot_info.kernel_memory_map, &boot_info.gop);
+    init_heap().unwrap();
     init_gdt();
     init_idt();
     init_pics();
-    init_paging(&memory_map, &boot_info.kernel_memory_map, &boot_info.gop);
-    init_heap().unwrap();
 
     x86_64::instructions::interrupts::enable();
 
@@ -84,6 +84,7 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     let runtime_services = unsafe {runtime_system_table.runtime_services()};
 
     println!("Time: {}", runtime_services.get_time().unwrap());
+    { FRAME_ALLOCATOR.get().unwrap().lock().print_stats(); }
     
     let mut a = vec![1, 2, 3];
     a.push(5);

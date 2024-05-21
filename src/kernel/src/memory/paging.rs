@@ -13,15 +13,10 @@ use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 
 pub fn init_paging(memory_map: &MemoryMap, kernel_memory_map: &'static [KernelMapEntry], gop: &GopInfo) {
     let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
-    frame_allocator.print_stats();
 
     let page_table_addr = frame_allocator.request_page().unwrap();
     let page_table = page_table_addr.start_address().as_u64() as *mut PageTable;
     let mut page_table_manager = unsafe {OffsetPageTable::new(&mut *page_table, VirtAddr::new(0))};
-
-    for entry in memory_map.entries().filter(|e| e.ty == MemoryType::MMIO || e.ty == MemoryType::MMIO_PORT_SPACE) {
-        println!("{:#?}", entry);
-    }
 
     for memory_map_entry in memory_map.entries() {
         for i in 0..memory_map_entry.page_count {

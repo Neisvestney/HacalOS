@@ -40,6 +40,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader-structs",
  "lazy_static",
+ "libm",
  "linked_list_allocator",
  "pc-keyboard",
  "pic8259",
@@ -59,6 +60,12 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
  "spin 0.5.2",
 ]
+
+[[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "linked_list_allocator"

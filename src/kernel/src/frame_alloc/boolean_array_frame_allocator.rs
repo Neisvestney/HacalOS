@@ -4,6 +4,7 @@ use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 use crate::{println, serial_println};
 use crate::utils::boolean_array::BooleanArray;
+use crate::utils::human_bytes::human_bytes;
 
 pub struct BooleanArrayFrameAllocator<'a> {
     boolean_array: BooleanArray<'a>,
@@ -119,9 +120,9 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     
     pub fn print_stats(&self) {
         println!("Page count: {}", self.get_total_pages_count());
-        println!("Total memory: {} MiB", self.get_total_memory_bytes() / 1024 / 1024);
-        println!("Free memory: {} KiB", self.get_free_memory_bytes() / 1024 / 1024);
-        println!("Reserved memory: {} MiB", self.get_reserved_memory_bytes() / 1024 / 1024);
+        println!("Total memory: {}", human_bytes(self.get_total_memory_bytes() as f64));
+        println!("Free memory: {}", human_bytes(self.get_free_memory_bytes() as f64));
+        println!("Reserved memory: {}", human_bytes(self.get_reserved_memory_bytes() as f64));
     }
 }
 
