@@ -1,5 +1,5 @@
 # HacalOS
-Simple x64 UEFI OS
+Blazingly fast simple x64 UEFI OS
 ## Building
 > Environment: Linux (or WSL)  
 Tested on: WSL Ubuntu 20.04.4 LTS
