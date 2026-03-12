@@ -1,8 +1,6 @@
-use core::ptr;
+use crate::render::color::Color;
 use bootloader_structs::GopInfo;
 use psf2::Font;
-use crate::render::color::Color;
-use crate::render::console_renderer::ConsoleRenderer;
 
 pub struct FrameBufferRenderer {
     pub frame_buffer: *mut u8,
@@ -21,7 +19,12 @@ impl FrameBufferRenderer {
         }
     }
     pub unsafe fn put_pixel_unchecked(&mut self, x: usize, y: usize, color: Color) {
-        self.frame_buffer.add(x as usize * 4 + (y as usize * 4 * self.horizontal_resolution)).cast::<u32>().write_volatile(color.as_u32());
+        unsafe {
+            self.frame_buffer
+                .add(x * 4 + (y * 4 * self.horizontal_resolution))
+                .cast::<u32>()
+                .write_volatile(color.as_u32());
+        }
     }
 
     pub fn put_pixel(&mut self, x: usize, y: usize, color: Color) {
@@ -36,19 +39,40 @@ impl FrameBufferRenderer {
         }
     }
 
-    pub fn put_char(&mut self, char: char, x: usize, y: usize, foreground_color: Color, background_color: Color, font: &Font<&[u8]>) {
-        let glyph = font.get_ascii(char as u8).unwrap_or(font.get_ascii(0x0).unwrap());
+    pub fn put_char(
+        &mut self,
+        char: char,
+        x: usize,
+        y: usize,
+        foreground_color: Color,
+        background_color: Color,
+        font: &Font<&[u8]>,
+    ) {
+        let glyph = font
+            .get_ascii(char as u8)
+            .unwrap_or(font.get_ascii(0x0).unwrap());
 
         for (yo, row) in glyph.enumerate() {
             for (xo, flag) in row.enumerate() {
-                self.put_pixel(x + xo, y + yo, if flag { foreground_color } else { background_color });
+                self.put_pixel(
+                    x + xo,
+                    y + yo,
+                    if flag {
+                        foreground_color
+                    } else {
+                        background_color
+                    },
+                );
             }
         }
     }
 
     pub fn vertical_shift(&mut self, rows: usize, fill_color: Color) {
         let buffer_slice = unsafe {
-            core::slice::from_raw_parts_mut(self.frame_buffer.cast::<u32>(), self.vertical_resolution * self.horizontal_resolution)
+            core::slice::from_raw_parts_mut(
+                self.frame_buffer.cast::<u32>(),
+                self.vertical_resolution * self.horizontal_resolution,
+            )
         };
 
         let shift = rows * self.horizontal_resolution;
@@ -58,7 +82,7 @@ impl FrameBufferRenderer {
         }
 
         for i in buffer_slice.len() - shift..buffer_slice.len() {
-           buffer_slice[i] = fill_color.as_u32();
+            buffer_slice[i] = fill_color.as_u32();
         }
     }
 

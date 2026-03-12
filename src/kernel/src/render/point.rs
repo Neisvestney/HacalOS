@@ -6,7 +6,6 @@ pub struct Point {
 
 impl Point {
     pub fn new(x: usize, y: usize) -> Self {
-        Point {x, y}
+        Point { x, y }
     }
 }
-

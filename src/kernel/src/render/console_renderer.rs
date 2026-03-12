@@ -1,8 +1,8 @@
-use core::fmt;
-use psf2::Font;
 use crate::render::color::Color;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::render::point::Point;
+use core::fmt;
+use psf2::Font;
 
 pub struct ConsoleRenderer<'a> {
     frame_buffer_renderer: FrameBufferRenderer,
@@ -13,7 +13,12 @@ pub struct ConsoleRenderer<'a> {
 }
 
 impl<'a> ConsoleRenderer<'a> {
-    pub fn new(frame_buffer_renderer: FrameBufferRenderer, font: Font<&'a [u8]>, foreground_color: Color, background_color: Color) -> Self {
+    pub fn new(
+        frame_buffer_renderer: FrameBufferRenderer,
+        font: Font<&'a [u8]>,
+        foreground_color: Color,
+        background_color: Color,
+    ) -> Self {
         ConsoleRenderer {
             frame_buffer_renderer,
             font,
@@ -45,7 +50,8 @@ impl<'a> ConsoleRenderer<'a> {
         for y in 0..self.frame_buffer_renderer.vertical_resolution {
             for x in 0..self.frame_buffer_renderer.horizontal_resolution {
                 unsafe {
-                    self.frame_buffer_renderer.put_pixel_unchecked(x, y, self.background_color);
+                    self.frame_buffer_renderer
+                        .put_pixel_unchecked(x, y, self.background_color);
                 }
             }
         }
@@ -57,14 +63,22 @@ impl<'a> ConsoleRenderer<'a> {
 
         if self.point.y >= self.get_height() {
             self.point.y -= 1;
-            self.frame_buffer_renderer.vertical_shift(self.font.height() as usize, self.background_color);
+            self.frame_buffer_renderer
+                .vertical_shift(self.font.height() as usize, self.background_color);
         }
     }
 
     pub fn backspace(&mut self) {
         if (self.point.x > 0) {
             self.point.x -= 1;
-            self.frame_buffer_renderer.put_char(' ', self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, self.background_color, &self.font);
+            self.frame_buffer_renderer.put_char(
+                ' ',
+                self.point.x * self.font.width() as usize,
+                self.point.y * self.font.height() as usize,
+                self.foreground_color,
+                self.background_color,
+                &self.font,
+            );
         }
     }
 
@@ -74,7 +88,14 @@ impl<'a> ConsoleRenderer<'a> {
                 '\n' => self.next_line(),
                 '\u{0008}' => self.backspace(),
                 _ => {
-                    self.frame_buffer_renderer.put_char(char, self.point.x * self.font.width() as usize, self.point.y * self.font.height() as usize, self.foreground_color, self.background_color, &self.font);
+                    self.frame_buffer_renderer.put_char(
+                        char,
+                        self.point.x * self.font.width() as usize,
+                        self.point.y * self.font.height() as usize,
+                        self.foreground_color,
+                        self.background_color,
+                        &self.font,
+                    );
 
                     self.point.x += 1;
                     if self.point.x >= self.get_width() {

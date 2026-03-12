@@ -1,10 +1,10 @@
+use crate::utils::boolean_array::BooleanArray;
+use crate::utils::human_bytes::human_bytes;
+use crate::{println, serial_println};
 use core::ops::Add;
 use uefi::table::boot::{AllocateType, MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
-use crate::{println, serial_println};
-use crate::utils::boolean_array::BooleanArray;
-use crate::utils::human_bytes::human_bytes;
 
 pub struct BooleanArrayFrameAllocator<'a> {
     boolean_array: BooleanArray<'a>,
@@ -31,7 +31,7 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
             last_page_index: 0,
         }
     }
-    
+
     pub fn read_from_memory_map(&mut self, memory_map: &MemoryMap) {
         for entry in memory_map.entries() {
             self.total_memory_bytes += entry.page_count * 4096;
@@ -44,15 +44,22 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
 
             if entry.ty == MemoryType::CONVENTIONAL {
                 self.free_memory_bytes += entry.page_count * 4096;
-                self.unlock_pages(PhysFrame::<Size4KiB>::from_start_address(PhysAddr::new(entry.phys_start)).unwrap(), entry.page_count as usize);
+                self.unlock_pages(
+                    PhysFrame::<Size4KiB>::from_start_address(PhysAddr::new(entry.phys_start))
+                        .unwrap(),
+                    entry.page_count as usize,
+                );
             } else {
                 self.reserved_memory_bytes += entry.page_count * 4096;
             }
         }
     }
-    
+
     fn lock_page(&mut self, frame: PhysFrame<Size4KiB>) {
-        self.boolean_array.set((frame.start_address().as_u64() / frame.size()) as usize, true)
+        self.boolean_array.set(
+            (frame.start_address().as_u64() / frame.size()) as usize,
+            true,
+        )
     }
 
     fn lock_pages(&mut self, frame_start: PhysFrame<Size4KiB>, page_count: usize) {
@@ -74,15 +81,17 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
             self.unlock_page(frame_start + index as u64);
         }
     }
-    
+
     pub fn request_page(&mut self) -> Result<PhysFrame<Size4KiB>, ()> {
         let mut index = self.point;
         while index < self.last_page_index as usize {
             if !self.boolean_array[index] {
                 let frame = unsafe {
-                    PhysFrame::<Size4KiB>::from_start_address_unchecked(PhysAddr::new((index * 4096) as u64))
+                    PhysFrame::<Size4KiB>::from_start_address_unchecked(PhysAddr::new(
+                        (index * 4096) as u64,
+                    ))
                 };
-                
+
                 self.lock_page(frame);
                 self.free_memory_bytes -= 4096;
                 self.point = index + 1;
@@ -90,7 +99,7 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
             }
             index += 1;
         }
-        
+
         Err(())
     }
 
@@ -117,21 +126,27 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     pub fn get_reserved_memory_bytes(&self) -> u64 {
         self.reserved_memory_bytes
     }
-    
+
     pub fn print_stats(&self) {
         println!("Page count: {}", self.get_total_pages_count());
-        println!("Total memory: {}", human_bytes(self.get_total_memory_bytes() as f64));
-        println!("Free memory: {}", human_bytes(self.get_free_memory_bytes() as f64));
-        println!("Reserved memory: {}", human_bytes(self.get_reserved_memory_bytes() as f64));
+        println!(
+            "Total memory: {}",
+            human_bytes(self.get_total_memory_bytes() as f64)
+        );
+        println!(
+            "Free memory: {}",
+            human_bytes(self.get_free_memory_bytes() as f64)
+        );
+        println!(
+            "Reserved memory: {}",
+            human_bytes(self.get_reserved_memory_bytes() as f64)
+        );
     }
 }
 
 unsafe impl<'a> FrameAllocator<Size4KiB> for BooleanArrayFrameAllocator<'a> {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        match self.request_page() {
-            Ok(addr) => Some(addr),
-            Err(_) => None,
-        }
+        self.request_page().ok()
     }
 }
 

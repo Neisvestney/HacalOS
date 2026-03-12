@@ -1,9 +1,9 @@
 use linked_list_allocator::LockedHeap;
-use x86_64::structures::paging::{Page, Size4KiB};
 use x86_64::structures::paging::mapper::MapToError;
+use x86_64::structures::paging::{Page, Size4KiB};
 
-use crate::{HEAD_SIZE, HEAP_START};
 use crate::memory::paging::alloc_memory_range;
+use crate::{HEAD_SIZE, HEAP_START};
 
 #[global_allocator]
 static ALLOCATOR: LockedHeap = LockedHeap::empty();
@@ -16,10 +16,12 @@ pub fn init_heap() -> Result<(), MapToError<Size4KiB>> {
         Page::range_inclusive(heap_start_page, heap_end_page)
     };
 
-    alloc_memory_range(page_range);
+    alloc_memory_range(page_range).expect("Cannot allocate pages for heap");
 
     unsafe {
-        ALLOCATOR.lock().init(HEAP_START.as_u64() as *mut u8, HEAD_SIZE);
+        ALLOCATOR
+            .lock()
+            .init(HEAP_START.as_u64() as *mut u8, HEAD_SIZE);
     }
 
     Ok(())

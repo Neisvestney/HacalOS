@@ -1,6 +1,6 @@
 #![no_std]
 
-use uefi::prelude::{RuntimeServices, SystemTable};
+use uefi::prelude::SystemTable;
 use uefi::table::boot::MemoryMap;
 use uefi::table::Runtime;
 use x86_64::structures::paging::{Page, PhysFrame, Size4KiB};
@@ -9,6 +9,7 @@ use x86_64::structures::paging::{Page, PhysFrame, Size4KiB};
 pub type KernelMainFunction = extern "sysv64" fn(boot_info: BootInfo) -> usize;
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct BootInfo {
     pub gop: GopInfo,
     pub font: &'static [u8],
@@ -30,6 +31,7 @@ unsafe impl Send for BootInfo {}
 unsafe impl Sync for BootInfo {}
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[repr(C)]
 pub struct GopInfo {
     pub frame_buffer: *mut u8,
     pub frame_buffer_size: usize,

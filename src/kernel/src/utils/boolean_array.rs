@@ -15,7 +15,7 @@ impl<'a> BooleanArray<'a> {
             self.data[i] = 0b11111111;
         }
     }
-    
+
     pub fn get(&self, index: usize) -> bool {
         assert!(index < self.data.len() * 8, "Index {index} out of bounds");
 
@@ -45,10 +45,6 @@ impl<'a> Index<usize> for BooleanArray<'a> {
     type Output = bool;
 
     fn index(&self, index: usize) -> &Self::Output {
-        if self.get(index) {
-            &true
-        } else {
-            &false
-        }
+        if self.get(index) { &true } else { &false }
     }
 }

@@ -6,17 +6,15 @@
 extern crate alloc;
 
 use alloc::vec;
-use alloc::vec::Vec;
 use core::arch::asm;
-use core::ops::{Deref, DerefMut};
 use core::panic::PanicInfo;
 
 use bootloader_structs::BootInfo;
 use psf2::Font;
 use spin::{Mutex, Once};
-use x86_64::instructions::hlt;
-use x86_64::structures::paging::{Mapper, OffsetPageTable};
 use x86_64::VirtAddr;
+use x86_64::instructions::hlt;
+use x86_64::structures::paging::OffsetPageTable;
 
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
 use crate::gdt::init_gdt;
@@ -27,14 +25,14 @@ use crate::render::color::Color;
 use crate::render::console_renderer::ConsoleRenderer;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 
-mod render;
-mod interrupts;
-mod gdt;
-mod serial;
-mod print;
-mod utils;
 mod frame_alloc;
+mod gdt;
+mod interrupts;
 mod memory;
+mod print;
+mod render;
+mod serial;
+mod utils;
 
 // static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
@@ -53,7 +51,12 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     let renderer = FrameBufferRenderer::new(&boot_info.gop);
     let font_data = boot_info.font;
     let font = Font::new(font_data).unwrap();
-    let console = ConsoleRenderer::new(renderer, font, Color::from_rgb(255, 255, 255), Color::from_rgb(30, 30, 30));
+    let console = ConsoleRenderer::new(
+        renderer,
+        font,
+        Color::from_rgb(255, 255, 255),
+        Color::from_rgb(30, 30, 30),
+    );
     CONSOLE.call_once(|| Mutex::new(console));
 
     // Frame allocator
@@ -62,7 +65,7 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     frame_allocator.read_from_memory_map(&memory_map);
     FRAME_ALLOCATOR.call_once(|| Mutex::new(frame_allocator));
 
-    let (width, height) = {
+    let (_width, _height) = {
         let mut console = CONSOLE.get().unwrap().lock();
         console.clear();
         let width = console.get_width();
@@ -71,7 +74,7 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
         (width, height)
     };
 
-    init_paging(&memory_map, &boot_info.kernel_memory_map, &boot_info.gop);
+    init_paging(&memory_map, boot_info.kernel_memory_map, &boot_info.gop);
     init_heap().unwrap();
     init_gdt();
     init_idt();
@@ -82,11 +85,13 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     println!("HacalOS v0.0.2");
 
     let runtime_system_table = boot_info.runtime_system_table.unwrap();
-    let runtime_services = unsafe {runtime_system_table.runtime_services()};
+    let runtime_services = unsafe { runtime_system_table.runtime_services() };
 
     println!("Time: {}", runtime_services.get_time().unwrap());
-    { FRAME_ALLOCATOR.get().unwrap().lock().print_stats(); }
-    
+    {
+        FRAME_ALLOCATOR.get().unwrap().lock().print_stats();
+    }
+
     let mut a = vec![1, 2, 3];
     a.push(5);
     println!("{:?} {:#?}", a, a.as_ptr());
@@ -98,7 +103,9 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     }
     println!("Hello after interrupt");
 
-    loop { hlt(); }
+    loop {
+        hlt();
+    }
 }
 
 /// This function is called on panic.
