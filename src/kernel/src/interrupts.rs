@@ -19,10 +19,6 @@ impl InterruptIndex {
     fn as_u8(self) -> u8 {
         self as u8
     }
-
-    fn as_usize(self) -> usize {
-        usize::from(self.as_u8())
-    }
 }
 
 lazy_static! {
@@ -60,7 +56,7 @@ pub fn init_pics() {
     };
 }
 
-extern "x86-interrupt" fn pic_timer_handler(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn pic_timer_handler(_stack_frame: InterruptStackFrame) {
     // print!(".");
 
     unsafe {
@@ -69,7 +65,7 @@ extern "x86-interrupt" fn pic_timer_handler(stack_frame: InterruptStackFrame) {
     }
 }
 
-extern "x86-interrupt" fn pic_keyboard_handler(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn pic_keyboard_handler(_stack_frame: InterruptStackFrame) {
     use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
     use spin::Mutex;
     use x86_64::instructions::port::Port;

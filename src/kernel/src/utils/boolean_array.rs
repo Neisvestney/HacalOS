@@ -1,5 +1,4 @@
-use core::ops::{Index, IndexMut};
-use x86_64::instructions::interrupts::disable;
+use core::ops::Index;
 
 pub struct BooleanArray<'a> {
     data: &'a mut [u8],

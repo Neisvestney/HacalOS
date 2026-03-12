@@ -1,8 +1,7 @@
 use crate::utils::boolean_array::BooleanArray;
 use crate::utils::human_bytes::human_bytes;
-use crate::{println, serial_println};
-use core::ops::Add;
-use uefi::table::boot::{AllocateType, MemoryMap, MemoryType};
+use crate::println;
+use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 
