@@ -1,3 +1,4 @@
+use core::ptr;
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{Page, PhysFrame};
 use crate::VIRTUAL_TO_PHYSICAL_OFFSET;
@@ -13,5 +14,8 @@ pub fn relocate_frame(frame: PhysFrame) -> Page {
 }
 
 pub unsafe fn relocate_raw_pointer_mut<T: ?Sized>(pointer: *mut T) -> *mut T {
-    pointer.byte_offset(VIRTUAL_TO_PHYSICAL_OFFSET.as_u64() as isize)
+    // pointer.byte_offset(VIRTUAL_TO_PHYSICAL_OFFSET.as_u64() as isize)
+
+    let addr = pointer.addr().wrapping_add(VIRTUAL_TO_PHYSICAL_OFFSET.as_u64() as usize);
+    ptr::from_raw_parts_mut(addr as *mut (), ptr::metadata(pointer))
 }

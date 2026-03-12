@@ -61,6 +61,7 @@ pub fn init_paging(memory_map: &MemoryMap, kernel_memory_map: &'static [KernelMa
         }
     }
 
+    println!("Start relocating {:?}", gop.frame_buffer);
     let new_frame_buffer_pointer = unsafe {relocate_raw_pointer_mut(gop.frame_buffer)};
     let new_frame_buffer_renderer = FrameBufferRenderer::new(&GopInfo {
         frame_buffer: new_frame_buffer_pointer,

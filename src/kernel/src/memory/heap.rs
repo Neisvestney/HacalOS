@@ -10,7 +10,7 @@ static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 pub fn init_heap() -> Result<(), MapToError<Size4KiB>> {
     let page_range = {
-        let heap_end = HEAP_START + HEAD_SIZE - 1u64;
+        let heap_end = HEAP_START + HEAD_SIZE as u64 - 1u64;
         let heap_start_page = Page::containing_address(HEAP_START);
         let heap_end_page = Page::containing_address(heap_end);
         Page::range_inclusive(heap_start_page, heap_end_page)

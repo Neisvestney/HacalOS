@@ -1,10 +1,11 @@
+use core::ops::Index;
 use lazy_static::lazy_static;
 use pc_keyboard::ScancodeSet1;
 use pic8259::ChainedPics;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use crate::{gdt, print, println};
 
-pub const SYSCALL_API_CALL: usize = 0x80;
+pub const SYSCALL_API_CALL: u8 = 0x80;
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
@@ -34,10 +35,12 @@ lazy_static! {
          .set_handler_fn(double_fault_handler)
          .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         
+        idt.index(1);
+        
         idt[SYSCALL_API_CALL].set_handler_fn(syscall_api_call_handler);
 
-        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(pic_timer_handler);
-        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(pic_keyboard_handler);
+        idt[InterruptIndex::Timer.as_u8()].set_handler_fn(pic_timer_handler);
+        idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(pic_keyboard_handler);
         
         idt
     };

@@ -1,5 +1,9 @@
 [build]
 target = "x86_64-hacal_os.json"
+rustflags = [
+    "-C",
+    "target-feature=-sse,-sse2,-avx,-avx2"
+]
 
 [unstable]
 build-std-features = ["compiler-builtins-mem"]

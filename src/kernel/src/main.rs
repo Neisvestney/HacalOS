@@ -1,4 +1,5 @@
 #![feature(abi_x86_interrupt)]
+#![feature(ptr_metadata)]
 #![no_std]
 #![no_main]
 

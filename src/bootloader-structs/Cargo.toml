@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 uefi = { version = "0.26.0", features = [] }
-x86_64 = "0.14.11"
+x86_64 = "0.15.4"
