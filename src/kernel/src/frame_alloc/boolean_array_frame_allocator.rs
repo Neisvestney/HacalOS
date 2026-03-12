@@ -1,6 +1,6 @@
+use crate::println;
 use crate::utils::boolean_array::BooleanArray;
 use crate::utils::human_bytes::human_bytes;
-use crate::println;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
@@ -15,6 +15,7 @@ pub struct BooleanArrayFrameAllocator<'a> {
     last_page_index: u64,
 }
 
+#[allow(unused)]
 impl<'a> BooleanArrayFrameAllocator<'a> {
     pub fn new(buffer: &'a mut [u8]) -> Self {
         let mut boolean_array = BooleanArray::new(buffer);

@@ -6,6 +6,7 @@ use x86_64::registers::segmentation::{CS, SS};
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::tss::TaskStateSegment;
 
+#[allow(unused)]
 pub const SYS_CALL_IST_INDEX: u16 = 1;
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 1;
 

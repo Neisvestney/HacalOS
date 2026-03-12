@@ -44,6 +44,7 @@ const HEAP_START: VirtAddr = unsafe { VirtAddr::new_unsafe(0xFFFF820000000000) }
 const HEAD_SIZE: usize = 100 * 1024;
 
 #[unsafe(no_mangle)]
+#[allow(improper_ctypes_definitions)]
 pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     x86_64::instructions::interrupts::disable();
 

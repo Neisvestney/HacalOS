@@ -2,6 +2,7 @@ use crate::render::color::Color;
 use bootloader_structs::GopInfo;
 use psf2::Font;
 
+#[allow(unused)]
 pub struct FrameBufferRenderer {
     pub frame_buffer: *mut u8,
     pub frame_buffer_size: usize,

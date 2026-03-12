@@ -12,6 +12,7 @@ pub struct ConsoleRenderer<'a> {
     background_color: Color,
 }
 
+#[allow(unused)]
 impl<'a> ConsoleRenderer<'a> {
     pub fn new(
         frame_buffer_renderer: FrameBufferRenderer,
@@ -69,7 +70,7 @@ impl<'a> ConsoleRenderer<'a> {
     }
 
     pub fn backspace(&mut self) {
-        if self.point.x > 0  {
+        if self.point.x > 0 {
             self.point.x -= 1;
             self.frame_buffer_renderer.put_char(
                 ' ',

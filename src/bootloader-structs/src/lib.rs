@@ -6,10 +6,12 @@ use uefi::table::Runtime;
 use x86_64::structures::paging::{Page, PhysFrame, Size4KiB};
 
 #[cfg(target_arch = "x86_64")]
+#[allow(improper_ctypes_definitions)]
 pub type KernelMainFunction = extern "sysv64" fn(boot_info: BootInfo) -> usize;
 
 #[derive(Debug)]
 #[repr(C)]
+#[allow(improper_ctypes_definitions)]
 pub struct BootInfo {
     pub gop: GopInfo,
     pub font: &'static [u8],

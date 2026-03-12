@@ -1,9 +1,6 @@
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
-use crate::{
-    CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET,
-    println,
-};
+use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET, println};
 use bootloader_structs::{GopInfo, KernelMapEntry};
 use core::ops::DerefMut;
 use spin::Mutex;
@@ -12,8 +9,7 @@ use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::page::PageRangeInclusive;
 use x86_64::structures::paging::{
-    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame,
-    Size4KiB,
+    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
 
