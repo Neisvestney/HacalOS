@@ -4,7 +4,7 @@ use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFF
 use bootloader_structs::{GopInfo, KernelMapEntry};
 use core::ops::DerefMut;
 use spin::Mutex;
-use uefi::table::boot::MemoryMap;
+use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::page::PageRangeInclusive;
@@ -100,7 +100,6 @@ pub fn init_paging(
         }
     }
 
-    println!("Start relocating {:?}", gop.frame_buffer);
     let new_frame_buffer_pointer = unsafe { relocate_raw_pointer_mut(gop.frame_buffer) };
     let new_frame_buffer_renderer = FrameBufferRenderer::new(&GopInfo {
         frame_buffer: new_frame_buffer_pointer,
@@ -144,6 +143,26 @@ pub fn alloc_memory_range(
                 .map_to(page, frame, flags, frame_allocator.deref_mut())?
                 .flush()
         };
+    }
+
+    Ok(())
+}
+
+pub fn map_mmio_single_page(phys_addr: PhysAddr) -> Result<(), MapToError<Size4KiB>> {
+    let mut mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
+    let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
+
+    let flags = PageTableFlags::PRESENT
+        | PageTableFlags::WRITABLE
+        | PageTableFlags::NO_EXECUTE
+        | PageTableFlags::NO_CACHE;
+    let frame = PhysFrame::<Size4KiB>::containing_address(phys_addr);
+    let virtual_page = relocate_frame(frame);
+
+    unsafe {
+        mapper
+            .map_to(virtual_page, frame, flags, frame_allocator.deref_mut())?
+            .flush();
     }
 
     Ok(())

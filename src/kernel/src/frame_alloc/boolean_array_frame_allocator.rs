@@ -1,6 +1,7 @@
 use crate::println;
 use crate::utils::boolean_array::BooleanArray;
 use crate::utils::human_bytes::human_bytes;
+use log::info;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
@@ -128,16 +129,16 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     }
 
     pub fn print_stats(&self) {
-        println!("Page count: {}", self.get_total_pages_count());
-        println!(
+        info!("Page count: {}", self.get_total_pages_count());
+        info!(
             "Total memory: {}",
             human_bytes(self.get_total_memory_bytes() as f64)
         );
-        println!(
+        info!(
             "Free memory: {}",
             human_bytes(self.get_free_memory_bytes() as f64)
         );
-        println!(
+        info!(
             "Reserved memory: {}",
             human_bytes(self.get_reserved_memory_bytes() as f64)
         );

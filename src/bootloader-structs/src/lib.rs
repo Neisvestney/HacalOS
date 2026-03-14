@@ -19,6 +19,7 @@ pub struct BootInfo {
     pub memory_map: Option<MemoryMap<'static>>,
     pub kernel_memory_map: &'static [KernelMapEntry],
     pub runtime_system_table: Option<SystemTable<Runtime>>,
+    pub rsbp_address: Option<usize>,
 }
 
 #[derive(Debug)]

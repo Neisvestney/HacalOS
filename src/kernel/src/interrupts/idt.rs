@@ -1,25 +1,16 @@
-use crate::{gdt, print, println};
-use core::ops::Index;
+use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
+use crate::{gdt, percpu, print, println};
 use lazy_static::lazy_static;
-use pic8259::ChainedPics;
+use log::{error, info, warn};
+use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 pub const SYSCALL_API_CALL: u8 = 0x80;
-pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-#[derive(Debug, Clone, Copy)]
-#[repr(u8)]
-pub enum InterruptIndex {
-    Timer = PIC_1_OFFSET,
-    Keyboard,
-}
-
-impl InterruptIndex {
-    fn as_u8(self) -> u8 {
-        self as u8
-    }
-}
+pub const LAPIC_TIMER_VECTOR: u8 = 0x20;
+pub const LAPIC_KEYBOARD_VECTOR: u8 = IO_APIC_BASE_OFFSET + KEYBOARD_ISA_IRQ;
+pub const LAPIC_ERROR_VECTOR: u8 = 0xFE;
+pub const LAPIC_SPURIOUS_VECTOR: u8 = 0xFF;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = unsafe {
@@ -30,12 +21,12 @@ lazy_static! {
             .set_handler_fn(double_fault_handler)
             .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
 
-        idt.index(1);
-
         idt[SYSCALL_API_CALL].set_handler_fn(syscall_api_call_handler);
 
-        idt[InterruptIndex::Timer.as_u8()].set_handler_fn(pic_timer_handler);
-        idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(pic_keyboard_handler);
+        idt[LAPIC_TIMER_VECTOR].set_handler_fn(lapic_timer_handler);
+        idt[LAPIC_KEYBOARD_VECTOR].set_handler_fn(lapic_keyboard_handler);
+        idt[LAPIC_ERROR_VECTOR].set_handler_fn(lapic_error_handler);
+        idt[LAPIC_SPURIOUS_VECTOR].set_handler_fn(lapic_spurious_handler);
 
         idt
     };
@@ -45,27 +36,12 @@ pub fn init_idt() {
     IDT.load();
 }
 
-pub static PICS: spin::Mutex<ChainedPics> =
-    spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
-
-pub fn init_pics() {
-    unsafe {
-        let mut pics = PICS.lock();
-        pics.write_masks(0b11111000, 0b11111111);
-        pics.initialize();
-    };
+extern "x86-interrupt" fn lapic_timer_handler(_frame: InterruptStackFrame) {
+    // info!("lapic_timer_handler");
+    unsafe { percpu::lapic().end_of_interrupt() }
 }
 
-extern "x86-interrupt" fn pic_timer_handler(_stack_frame: InterruptStackFrame) {
-    // print!(".");
-
-    unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
-    }
-}
-
-extern "x86-interrupt" fn pic_keyboard_handler(_stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn lapic_keyboard_handler(_stack_frame: InterruptStackFrame) {
     use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
     use spin::Mutex;
     use x86_64::instructions::port::Port;
@@ -91,23 +67,22 @@ extern "x86-interrupt" fn pic_keyboard_handler(_stack_frame: InterruptStackFrame
         }
     }
 
-    unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
-    }
+    unsafe { percpu::lapic().end_of_interrupt() }
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
-    println!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
+    warn!("EXCEPTION: BREAKPOINT\n{:#?}", stack_frame);
 }
 
 extern "x86-interrupt" fn page_fault_handler(
     stack_frame: InterruptStackFrame,
     page_fault_error_code: PageFaultErrorCode,
 ) {
-    println!(
-        "EXCEPTION: PAGEFAULT\n{:#?}\n{:#?}",
-        stack_frame, page_fault_error_code
+    let virt_address = Cr2::read();
+
+    error!(
+        "EXCEPTION: PAGEFAULT\n{:#?}\n{:#?}\nVirtual address: {:#x?}",
+        stack_frame, page_fault_error_code, virt_address
     );
 }
 
@@ -120,4 +95,19 @@ extern "x86-interrupt" fn double_fault_handler(
     _error_code: u64,
 ) -> ! {
     panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
+}
+
+extern "x86-interrupt" fn lapic_spurious_handler(_frame: InterruptStackFrame) {
+    warn!("Spurious interrupt");
+}
+
+extern "x86-interrupt" fn lapic_error_handler(_frame: InterruptStackFrame) {
+    let lapic_base = unsafe { x2apic::lapic::xapic_base() };
+    let esr = unsafe {
+        let ptr = (lapic_base + 0x280) as *mut u32;
+        ptr.write_volatile(0); // сброс: сначала пишем
+        ptr.read_volatile() // потом читаем
+    };
+    error!("LAPIC ERROR: ESR = {:#010b}", esr);
+    unsafe { percpu::lapic().end_of_interrupt() }
 }

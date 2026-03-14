@@ -14,6 +14,7 @@ use uefi::prelude::*;
 use uefi::proto::console::gop::GraphicsOutput;
 use uefi::proto::media::fs::SimpleFileSystem;
 use uefi::table::boot::{AllocateType, MemoryType};
+use uefi::table::cfg::{ACPI2_GUID, ACPI_GUID};
 use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::page::Size4KiB;
 use x86_64::structures::paging::{
@@ -139,6 +140,8 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         )
     };
 
+    let rsbp_address = find_rsdp(&system_table);
+
     let mut boot_info = Box::new(BootInfo {
         gop,
         font: Vec::leak(font),
@@ -146,6 +149,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         memory_map: None,
         runtime_system_table: None,
         kernel_memory_map: Vec::leak(kernel_memory_map),
+        rsbp_address,
         //runtime_services: system_table.runtime_services().clone(),
     });
 
@@ -239,4 +243,18 @@ fn copy_to_physical_address(src: &[u8], physical_address: u64) {
             ptr.write(*byte);
         }
     }
+}
+
+fn find_rsdp(st: &SystemTable<Boot>) -> Option<usize> {
+    for entry in st.config_table() {
+        if entry.guid == ACPI2_GUID {
+            return Some(entry.address as usize);
+        }
+    }
+    for entry in st.config_table() {
+        if entry.guid == ACPI_GUID {
+            return Some(entry.address as usize);
+        }
+    }
+    None
 }
