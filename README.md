@@ -17,6 +17,11 @@ Tested on: WSL Ubuntu 20.04.4 LTS
 - Install all required dependencies:
   - Apt: `sudo apt install qemu-kvm ovmf`
 - Run qemu `make run`
+## Setup and debug in RustRover
+- Set `File | Settings | Rust -> Toolchain Location` to `\\wsl$\Ubuntu\home\[user]\.cargo\bin`
+- Set `Enviroments variables` to `CARGO_UNSTABLE_JSON_TARGET_SPEC=true`
+- Add remote debug configuration with GDB, target to `localhost:1234` and symbols to `$ProjectFileDir$/src/kernel/target/x86_64-hacal_os/debug/kernel`
+- Run `make DEBUG=1 run` and then run debug configuration in RustRover
 ## Debug with CLion and gdb
 - Add new WSL toolchain (`File | Settings | Build, Execution, Deployment | Toolchains`) with custom gdb path `\home\[user]\.cargo\bin\rust-gdb` 
 - Add remote debug configuration with this toolchain
