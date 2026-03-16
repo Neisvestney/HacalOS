@@ -22,7 +22,6 @@ endif
 BOOTLOADER_EFI := src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.efi
 KERNEL_ELF     := src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel
 
-## Исходные файлы — для первичного отслеживания зависимостей
 BOOTLOADER_SRCS := $(shell find src/bootloader/src -name '*.rs') \
                    src/bootloader/Cargo.toml                     \
                    src/bootloader/Cargo.lock
@@ -31,7 +30,6 @@ KERNEL_SRCS     := $(shell find src/kernel/src -name '*.rs') \
                    src/kernel/Cargo.toml                      \
                    src/kernel/Cargo.lock
 
-## Cargo генерирует depinfo-файлы (.d) — подключаем для точного отслеживания
 -include src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.d
 -include src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel.d
 
