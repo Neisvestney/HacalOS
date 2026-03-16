@@ -19,8 +19,8 @@ CARGO_FLAGS :=
 CARGO_DIR   := debug
 endif
 
-BOOTLOADER_EFI := src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.efi
-KERNEL_ELF     := src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel
+BOOTLOADER_EFI := $(CURDIR)/src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.efi
+KERNEL_ELF     := $(CURDIR)/src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel
 
 BOOTLOADER_SRCS := $(shell find src/bootloader/src -name '*.rs') \
                    src/bootloader/Cargo.toml                     \
@@ -81,6 +81,8 @@ run: $(OUT)/os.img
 
 clean:
 	rm -rf $(OUT)
+	rm -rf $(CURDIR)/src/bootloader/target
+	rm -rf $(CURDIR)/src/kernel/target
 
 $(OUT) $(OUT)/iso:
 	mkdir -p $@
