@@ -32,6 +32,7 @@ use spin::{Mutex, Once};
 use x86_64::VirtAddr;
 use x86_64::instructions::hlt;
 use x86_64::structures::paging::{OffsetPageTable, Translate};
+use crate::hpet::{init_hpet, HPET};
 
 mod acpi;
 mod frame_alloc;
@@ -43,6 +44,7 @@ mod print;
 mod render;
 mod serial;
 mod utils;
+mod hpet;
 
 // static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
@@ -104,6 +106,7 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     );
     init_per_cpu(local_apic);
     init_ioapic_interrupts(&apic_info, bsp_lapic_id as u8);
+    init_hpet(&acpi_tables);
 
     x86_64::instructions::interrupts::enable();
 
@@ -149,7 +152,7 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
             // Interrupt Source Overrides (например, IRQ0 → GSI2 для таймера)
             for iso in apic.interrupt_source_overrides.iter() {
                 warn!(
-                    "ISO: irq={} → gsi={}",
+                    "ISO: irq={} to gsi={}",
                     iso.isa_source, iso.global_system_interrupt
                 );
             }
@@ -157,16 +160,24 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
         _ => panic!("Non-APIC interrupt model"),
     }
 
-    // let mut a = vec![1, 2, 3];
-    // a.push(5);
-    // println!("{:?} {:#?}", a, a.as_ptr());
-    //
-    // println!("Hello before interrupt");
-    // x86_64::instructions::interrupts::int3();
-    // unsafe {
-    //     asm!("int $0x80", options(nomem, nostack));
-    // }
-    // println!("Hello after interrupt");
+    {
+        let hpet = HPET.get().unwrap().read();
+        for a in 0..3 {
+            println!("{}", a);
+            hpet.wait_ms(1000);
+        }
+    }
+
+    let mut a = vec![1, 2, 3];
+    a.push(5);
+    info!("{:?} {:#?}", a, a.as_ptr());
+
+    info!("Hello before interrupt");
+    x86_64::instructions::interrupts::int3();
+    unsafe {
+        asm!("int $0x80", options(nomem, nostack));
+    }
+    info!("Hello after interrupt");
 
     loop {
         hlt();

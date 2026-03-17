@@ -87,7 +87,7 @@ extern "x86-interrupt" fn page_fault_handler(
 }
 
 extern "x86-interrupt" fn syscall_api_call_handler(stack_frame: InterruptStackFrame) {
-    println!("SYSCALL: API CALL\n{:#?}", stack_frame);
+    info!("SYSCALL: API CALL\n{:#?}", stack_frame);
 }
 
 extern "x86-interrupt" fn double_fault_handler(
