@@ -5,11 +5,11 @@ use core::fmt;
 use psf2::Font;
 
 pub struct ConsoleRenderer<'a> {
-    frame_buffer_renderer: FrameBufferRenderer,
-    font: Font<&'a [u8]>,
-    point: Point,
-    foreground_color: Color,
-    background_color: Color,
+    pub frame_buffer_renderer: FrameBufferRenderer,
+    pub font: Font<&'a [u8]>,
+    pub point: Point,
+    pub foreground_color: Color,
+    pub background_color: Color,
 }
 
 #[allow(unused)]
@@ -105,10 +105,6 @@ impl<'a> ConsoleRenderer<'a> {
                 }
             }
         }
-    }
-
-    pub fn set_renderer(&mut self, renderer: FrameBufferRenderer) {
-        self.frame_buffer_renderer = renderer;
     }
 }
 

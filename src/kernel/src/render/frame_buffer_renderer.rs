@@ -3,6 +3,7 @@ use bootloader_structs::GopInfo;
 use psf2::Font;
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct FrameBufferRenderer {
     pub frame_buffer: *mut u8,
     pub frame_buffer_size: usize,

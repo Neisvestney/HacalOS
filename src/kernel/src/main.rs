@@ -1,5 +1,6 @@
 #![feature(abi_x86_interrupt)]
 #![feature(ptr_metadata)]
+#![feature(never_type)]
 #![no_std]
 #![no_main]
 
@@ -13,8 +14,8 @@ use crate::interrupts::idt::init_idt;
 use crate::interrupts::ioapic::init_ioapic_interrupts;
 use crate::interrupts::lapic::init_lapic;
 use crate::interrupts::pic::disable_pics;
-use crate::memory::heap::init_heap;
-use crate::memory::paging::init_paging;
+use crate::memory::heap::init_kernel_heap;
+use crate::memory::paging::{init_paging, unmap_lower_half};
 use crate::percpu::init::init_per_cpu;
 use crate::render::color::Color;
 use crate::render::console_renderer::ConsoleRenderer;
@@ -25,14 +26,20 @@ use ::acpi::{AcpiTables, InterruptModel};
 use alloc::vec;
 use bootloader_structs::BootInfo;
 use core::arch::asm;
+use core::ops::Deref;
 use core::panic::PanicInfo;
 use log::{info, warn};
 use psf2::Font;
 use spin::{Mutex, Once};
+use uefi::table::{Runtime, SystemTable};
+use uefi::table::boot::MemoryMap;
 use x86_64::VirtAddr;
 use x86_64::instructions::hlt;
-use x86_64::structures::paging::{OffsetPageTable, Translate};
+use x86_64::structures::paging::{OffsetPageTable, Page, Size4KiB, Translate};
 use crate::hpet::{init_hpet, HPET};
+use crate::memory::stack::{allocate_stack, switch_stack_and_jump};
+use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocator;
+use crate::uefi_runtime_services::relocate_uefi_runtime_services;
 
 mod acpi;
 mod frame_alloc;
@@ -45,6 +52,7 @@ mod render;
 mod serial;
 mod utils;
 mod hpet;
+mod uefi_runtime_services;
 
 // static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
@@ -52,14 +60,21 @@ static PAGE_TABLE_MAPPER: Once<Mutex<OffsetPageTable>> = Once::new();
 static FRAME_ALLOCATOR: Once<Mutex<BooleanArrayFrameAllocator>> = Once::new();
 
 const VIRTUAL_TO_PHYSICAL_OFFSET: VirtAddr = unsafe { VirtAddr::new_unsafe(0xFFFF900000000000) };
-const HEAP_START: VirtAddr = unsafe { VirtAddr::new_unsafe(0xFFFF820000000000) };
-const HEAD_SIZE: usize = 100 * 1024;
+
+const VIRTUAL_MEMORY_REGION_START: Page<Size4KiB> = unsafe { Page::from_start_address_unchecked(VirtAddr::new_unsafe(0xFFFF820000000000)) };
+const VIRTUAL_MEMORY_REGION_PAGES_COUNT: u64 = 1024;
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
 pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
     x86_64::instructions::interrupts::disable();
 
+    init(boot_info);
+
+    0
+}
+
+fn init(boot_info: BootInfo) {
     // Console
     let renderer = FrameBufferRenderer::new(&boot_info.gop);
     let font_data = boot_info.font;
@@ -89,9 +104,13 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
         (width, height)
     };
 
-    init_paging(&memory_map, boot_info.kernel_memory_map, &boot_info.gop);
-    init_heap().unwrap();
-    init_gdt();
+    info!("HacalOS initializing...");
+
+    init_paging(&memory_map, boot_info.kernel_memory_map, &boot_info.gop, &boot_info.font);
+    init_kernel_virtual_memory_allocator();
+    init_kernel_heap().unwrap();
+    let (bsp_kernel_stack_top, _bsp_kernel_stack_protection_page) = allocate_stack().expect("Cannot allocate memory for stack");
+    let (gdt, tss) = init_gdt();
     init_idt();
     disable_pics();
 
@@ -104,16 +123,38 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
         bsp_lapic_id <= u8::MAX as u32,
         "BSP lapic id too large. This should not be possible"
     );
-    init_per_cpu(local_apic);
+    init_per_cpu(local_apic, gdt, tss);
     init_ioapic_interrupts(&apic_info, bsp_lapic_id as u8);
     init_hpet(&acpi_tables);
 
+    let runtime_system_table = boot_info.runtime_system_table.unwrap();
+    info!("Jumping to new stack");
+    switch_stack_and_jump(bsp_kernel_stack_top, move || {main(runtime_system_table, acpi_tables, memory_map)});
+}
+
+fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<AcpiHandlerImpl>, memory_map: MemoryMap) -> ! {
+    let runtime_system_table = relocate_uefi_runtime_services(runtime_system_table, &memory_map);
+    let runtime_services = unsafe { runtime_system_table.runtime_services() };
+    info!("Unmapping lower half");
+    unmap_lower_half(&memory_map);
+
     x86_64::instructions::interrupts::enable();
 
-    println!("HacalOS v0.0.2");
+    println!("HacalOS v0.0.3");
 
-    let runtime_system_table = boot_info.runtime_system_table.unwrap();
-    let runtime_services = unsafe { runtime_system_table.runtime_services() };
+    // unsafe {
+    //     info!("GDT {:#?}", percpu::current().gdt);
+    //     info!("TSS {:#?}", percpu::current().tss);
+    // }
+
+    // fn test() {
+    //     test();
+    // }
+    // test();
+
+    // unsafe {
+    //     (0xFFFFAA0000000000 as *mut u8).write_volatile(1);
+    // }
 
     info!("Time: {}", runtime_services.get_time().unwrap());
 
@@ -159,6 +200,11 @@ pub extern "sysv64" fn _start(boot_info: BootInfo) -> usize {
         }
         _ => panic!("Non-APIC interrupt model"),
     }
+
+    // fn test() {
+    //     test()
+    // }
+    // test();
 
     {
         let hpet = HPET.get().unwrap().read();

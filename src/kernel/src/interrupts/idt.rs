@@ -1,5 +1,5 @@
 use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
-use crate::{gdt, percpu, print, println};
+use crate::{gdt, percpu, print, println, CONSOLE};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use x86_64::registers::control::Cr2;
@@ -16,7 +16,9 @@ lazy_static! {
     static ref IDT: InterruptDescriptorTable = unsafe {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
-        idt.page_fault.set_handler_fn(page_fault_handler);
+        idt.page_fault
+            .set_handler_fn(page_fault_handler)
+            .set_stack_index(gdt::PAGE_FAULT_IST_INDEX);
         idt.double_fault
             .set_handler_fn(double_fault_handler)
             .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
@@ -84,6 +86,8 @@ extern "x86-interrupt" fn page_fault_handler(
         "EXCEPTION: PAGEFAULT\n{:#?}\n{:#?}\nVirtual address: {:#x?}",
         stack_frame, page_fault_error_code, virt_address
     );
+
+    panic!("EXCEPTION: PAGE FAULT");
 }
 
 extern "x86-interrupt" fn syscall_api_call_handler(stack_frame: InterruptStackFrame) {

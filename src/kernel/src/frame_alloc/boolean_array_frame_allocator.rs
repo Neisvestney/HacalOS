@@ -1,3 +1,4 @@
+use core::slice;
 use crate::println;
 use crate::utils::boolean_array::BooleanArray;
 use crate::utils::human_bytes::human_bytes;
@@ -5,7 +6,9 @@ use log::info;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
+use crate::utils::relocate::relocate_raw_pointer_mut;
 
+#[derive(Debug)]
 pub struct BooleanArrayFrameAllocator<'a> {
     boolean_array: BooleanArray<'a>,
     point: usize,
@@ -54,6 +57,16 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
                 self.reserved_memory_bytes += entry.page_count * 4096;
             }
         }
+    }
+
+    pub unsafe fn relocate_buffer(&mut self) {
+        let new_buffer_ptr = unsafe { relocate_raw_pointer_mut(self.boolean_array.get_ptr_mut())};
+        let new_buffer_slice = unsafe { slice::from_raw_parts_mut(new_buffer_ptr, self.boolean_array.buffer_size()) };
+        self.boolean_array = BooleanArray::new(new_buffer_slice);
+    }
+
+    pub fn buffer_ptr(&mut self) -> *mut u8 {
+        self.boolean_array.get_ptr_mut()
     }
 
     fn lock_page(&mut self, frame: PhysFrame<Size4KiB>) {

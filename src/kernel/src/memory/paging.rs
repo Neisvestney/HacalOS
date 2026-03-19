@@ -1,22 +1,29 @@
+use alloc::vec::Vec;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
-use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
+use crate::utils::relocate::{relocate_addr, relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut};
 use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET, println};
 use bootloader_structs::{GopInfo, KernelMapEntry};
 use core::ops::DerefMut;
+use core::ptr::slice_from_raw_parts;
+use log::{info, warn};
+use psf2::Font;
 use spin::Mutex;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::registers::control::{Cr3, Cr3Flags};
-use x86_64::structures::paging::mapper::MapToError;
+use x86_64::structures::paging::mapper::{CleanUp, MapToError};
 use x86_64::structures::paging::page::PageRangeInclusive;
 use x86_64::structures::paging::{
     FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
+use crate::memory::heap::ALLOCATOR;
+use crate::utils::human_bytes::human_bytes;
 
 pub fn init_paging(
     memory_map: &MemoryMap,
     kernel_memory_map: &'static [KernelMapEntry],
     gop: &GopInfo,
+    font: &'static [u8],
 ) {
     let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
 
@@ -100,17 +107,8 @@ pub fn init_paging(
         }
     }
 
-    let new_frame_buffer_pointer = unsafe { relocate_raw_pointer_mut(gop.frame_buffer) };
-    let new_frame_buffer_renderer = FrameBufferRenderer::new(&GopInfo {
-        frame_buffer: new_frame_buffer_pointer,
-        ..*gop
-    });
-    {
-        CONSOLE
-            .get()
-            .unwrap()
-            .lock()
-            .set_renderer(new_frame_buffer_renderer);
+    unsafe {
+        frame_allocator.relocate_buffer();
     }
 
     // Switch to kernel paging table
@@ -125,6 +123,54 @@ pub fn init_paging(
         )
     };
     PAGE_TABLE_MAPPER.call_once(|| Mutex::new(page_table_manager));
+
+    {
+        let new_frame_buffer_pointer = unsafe { relocate_raw_pointer_mut(gop.frame_buffer) };
+        let new_frame_buffer_renderer = FrameBufferRenderer::new(&GopInfo {
+            frame_buffer: new_frame_buffer_pointer,
+            ..*gop
+        });
+
+        let new_font_pointer = unsafe { relocate_raw_pointer(font.as_ptr()) };
+        let new_font_slice = unsafe {&*slice_from_raw_parts(new_font_pointer, font.len())};
+        let new_font = Font::new(new_font_slice).unwrap();
+
+        let mut console = CONSOLE
+            .get()
+            .unwrap()
+            .lock();
+
+        console.frame_buffer_renderer = new_frame_buffer_renderer;
+        console.font = new_font;
+    }
+}
+
+pub fn unmap_lower_half(memory_map: &MemoryMap) {
+    let mut mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
+    let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
+
+    let mut relocated_memory_map = Vec::new();
+    for memory_map_entry in memory_map.entries() {
+        relocated_memory_map.push(*memory_map_entry);
+    }
+
+    for memory_map_entry in relocated_memory_map {
+        for i in 0..memory_map_entry.page_count {
+            let virtual_frame =
+                Page::<Size4KiB>::from_start_address(VirtAddr::new(memory_map_entry.phys_start)).unwrap() + i;
+
+            let result = unsafe { mapper.unmap(virtual_frame) };
+
+            match result {
+                Ok((_, flush)) => flush.flush(),
+                Err(e) => warn!("Err {:?}", e),
+            }
+        }
+    }
+
+    unsafe {
+        mapper.clean_up(frame_allocator.deref_mut());
+    }
 }
 
 pub fn alloc_memory_range(

@@ -1,27 +1,21 @@
 use linked_list_allocator::LockedHeap;
 use x86_64::structures::paging::mapper::MapToError;
-use x86_64::structures::paging::{Page, Size4KiB};
+use x86_64::structures::paging::{Page, PageSize, Size4KiB};
 
-use crate::memory::paging::alloc_memory_range;
-use crate::{HEAD_SIZE, HEAP_START};
+use crate::memory::virtual_memory_allocator::KERNEL_VIRTUAL_MEMORY_ALLOCATOR;
+
+const HEAP_PAGES_COUNT: u64 = 10;
 
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+pub static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
-pub fn init_heap() -> Result<(), MapToError<Size4KiB>> {
-    let page_range = {
-        let heap_end = HEAP_START + HEAD_SIZE as u64 - 1u64;
-        let heap_start_page = Page::containing_address(HEAP_START);
-        let heap_end_page = Page::containing_address(heap_end);
-        Page::range_inclusive(heap_start_page, heap_end_page)
-    };
-
-    alloc_memory_range(page_range).expect("Cannot allocate pages for heap");
+pub fn init_kernel_heap() -> Result<(), MapToError<Size4KiB>> {
+    let heap = KERNEL_VIRTUAL_MEMORY_ALLOCATOR.get().unwrap().lock().alloc_pages(HEAP_PAGES_COUNT).expect("Failed allocated page for heap");
 
     unsafe {
         ALLOCATOR
             .lock()
-            .init(HEAP_START.as_u64() as *mut u8, HEAD_SIZE);
+            .init(heap as *mut u8, heap.len());
     }
 
     Ok(())

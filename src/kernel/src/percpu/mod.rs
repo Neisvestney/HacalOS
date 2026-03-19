@@ -3,12 +3,16 @@ pub mod init;
 
 use core::cell::UnsafeCell;
 use x2apic::lapic::LocalApic;
+use x86_64::structures::gdt::GlobalDescriptorTable;
+use x86_64::structures::tss::TaskStateSegment;
 
 #[repr(C)]
 pub struct PerCpu {
     pub this: *mut PerCpu,
     pub cpu_id: u32,
     pub local_apic: UnsafeCell<LocalApic>,
+    pub gdt: &'static mut GlobalDescriptorTable,
+    pub tss: &'static mut TaskStateSegment,
 }
 
 // SAFETY: PerCpu must be used only in cpu that associated with struct instance

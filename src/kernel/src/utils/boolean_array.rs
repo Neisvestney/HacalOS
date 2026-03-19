@@ -1,5 +1,7 @@
 use core::ops::Index;
+use x86_64::structures::paging::Page;
 
+#[derive(Debug)]
 pub struct BooleanArray<'a> {
     data: &'a mut [u8],
 }
@@ -37,6 +39,14 @@ impl<'a> BooleanArray<'a> {
 
     pub fn len(&self) -> usize {
         self.data.len() * 8
+    }
+
+    pub fn get_ptr_mut(&mut self) -> *mut u8 {
+        self.data.as_mut_ptr()
+    }
+
+    pub fn buffer_size(&self) -> usize {
+        self.data.len()
     }
 }
 
