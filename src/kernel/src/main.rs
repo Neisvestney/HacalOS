@@ -79,32 +79,23 @@ fn init(boot_info: BootInfo) {
     let renderer = FrameBufferRenderer::new(&boot_info.gop);
     let font_data = boot_info.font;
     let font = Font::new(font_data).unwrap();
-    let console = ConsoleRenderer::new(
+    let mut console = ConsoleRenderer::new(
         renderer,
         font,
         Color::from_rgb(255, 255, 255),
         Color::from_rgb(30, 30, 30),
     );
+    console.clear();
     CONSOLE.call_once(|| Mutex::new(console));
-
     init_logger().expect("Failed to initialize logger");
+
+    info!("HacalOS initializing...");
 
     // Frame allocator
     let memory_map = boot_info.memory_map.unwrap();
     let mut frame_allocator = BooleanArrayFrameAllocator::new(boot_info.frame_allocator_buffer);
     frame_allocator.read_from_memory_map(&memory_map);
     FRAME_ALLOCATOR.call_once(|| Mutex::new(frame_allocator));
-
-    let (_width, _height) = {
-        let mut console = CONSOLE.get().unwrap().lock();
-        console.clear();
-        let width = console.get_width();
-        let height = console.get_height();
-
-        (width, height)
-    };
-
-    info!("HacalOS initializing...");
 
     init_paging(&memory_map, boot_info.kernel_memory_map, &boot_info.gop, &boot_info.font);
     init_kernel_virtual_memory_allocator();
@@ -218,12 +209,12 @@ fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<Acpi
     a.push(5);
     info!("{:?} {:#?}", a, a.as_ptr());
 
-    info!("Hello before interrupt");
-    x86_64::instructions::interrupts::int3();
-    unsafe {
-        asm!("int $0x80", options(nomem, nostack));
-    }
-    info!("Hello after interrupt");
+    // info!("Hello before interrupt");
+    // x86_64::instructions::interrupts::int3();
+    // unsafe {
+    //     asm!("int $0x80", options(nomem, nostack));
+    // }
+    // info!("Hello after interrupt");
 
     loop {
         hlt();

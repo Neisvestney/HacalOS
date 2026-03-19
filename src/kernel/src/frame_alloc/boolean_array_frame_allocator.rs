@@ -37,6 +37,9 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     }
 
     pub fn read_from_memory_map(&mut self, memory_map: &MemoryMap) {
+        // for entry in memory_map.entries() {
+        //     info!("Entry: {:x?}", entry);
+        // }
         for entry in memory_map.entries() {
             self.total_memory_bytes += entry.page_count * 4096;
             self.total_pages_count += entry.page_count;
@@ -141,6 +144,10 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         self.reserved_memory_bytes
     }
 
+    pub fn get_used_memory_bytes(&self) -> u64 {
+        self.get_total_memory_bytes() - self.get_free_memory_bytes() - self.get_reserved_memory_bytes()
+    }
+
     pub fn print_stats(&self) {
         info!("Page count: {}", self.get_total_pages_count());
         info!(
@@ -150,6 +157,10 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         info!(
             "Free memory: {}",
             human_bytes(self.get_free_memory_bytes() as f64)
+        );
+        info!(
+            "Used memory: {}",
+            human_bytes(self.get_used_memory_bytes() as f64)
         );
         info!(
             "Reserved memory: {}",

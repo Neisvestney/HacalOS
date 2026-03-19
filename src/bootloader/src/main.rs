@@ -119,7 +119,12 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
             unsafe { slice::from_raw_parts_mut(memory_map_buffer, memory_map_buffer_size) };
         let memory_map = bt.memory_map(memory_map_buffer).unwrap();
 
-        let last_memory_entry = memory_map.entries().last().unwrap();
+        let last_memory_entry = memory_map
+            .entries()
+            .max_by(|a, b|
+                (a.phys_start + a.page_count * 4096).cmp(&(b.phys_start + b.page_count * 4096))
+            )
+            .unwrap();
         let total_memory_page_count =
             last_memory_entry.phys_start / 4096 + last_memory_entry.page_count;
         let frame_allocator_buffer_size = (total_memory_page_count as usize / 8) + 1;
