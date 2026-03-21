@@ -33,7 +33,7 @@ KERNEL_SRCS     := $(shell find src/kernel/src -name '*.rs') \
 -include src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.d
 -include src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel.d
 
-.PHONY: all bootloader kernel run clean help
+.PHONY: all bootloader kernel run clean help os.img os.iso os.vdi
 
 all: os.iso
 
@@ -65,6 +65,8 @@ $(OUT)/os.img: $(OUT)/part.img | $(OUT)
 
 ## --- Image formats ---
 
+os.img: $(OUT)/os.img
+
 os.iso: $(OUT)/os.img | $(OUT)/iso
 	cp $(OUT)/os.img $(OUT)/iso/
 	xorriso -as mkisofs -R -f --efi-boot os.img -o $(OUT)/os.iso $(OUT)/iso
@@ -88,6 +90,6 @@ $(OUT) $(OUT)/iso:
 	mkdir -p $@
 
 help:
-	@echo "Targets: all, bootloader, kernel, os.iso, os.vdi, run, clean"
+	@echo "Targets: all, bootloader, kernel, os.img, os.iso, os.vdi, run, clean"
 	@echo "Options: DEBUG=1  — enable QEMU GDB stub"
 	@echo "         RELEASE=1 — build with --release"
