@@ -36,10 +36,12 @@ use uefi::table::boot::MemoryMap;
 use x86_64::VirtAddr;
 use x86_64::instructions::hlt;
 use x86_64::structures::paging::{OffsetPageTable, Page, Size4KiB, Translate};
+use inithfs::InitHFsRoot;
 use crate::hpet::{init_hpet, HPET};
 use crate::memory::stack::{allocate_stack, switch_stack_and_jump};
 use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocator;
 use crate::uefi_runtime_services::relocate_uefi_runtime_services;
+use crate::utils::relocate::relocate_raw_pointer;
 
 mod acpi;
 mod frame_alloc;
@@ -120,10 +122,10 @@ fn init(boot_info: BootInfo) {
 
     let runtime_system_table = boot_info.runtime_system_table.unwrap();
     info!("Jumping to new stack");
-    switch_stack_and_jump(bsp_kernel_stack_top, move || {main(runtime_system_table, acpi_tables, memory_map)});
+    switch_stack_and_jump(bsp_kernel_stack_top, move || {main(runtime_system_table, acpi_tables, memory_map, boot_info.inithfs_bytes)});
 }
 
-fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<AcpiHandlerImpl>, memory_map: MemoryMap) -> ! {
+fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<AcpiHandlerImpl>, memory_map: MemoryMap, inithfs_bytes: &'static [u8]) -> ! {
     let runtime_system_table = relocate_uefi_runtime_services(runtime_system_table, &memory_map);
     let runtime_services = unsafe { runtime_system_table.runtime_services() };
     info!("Unmapping lower half");
@@ -148,6 +150,16 @@ fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<Acpi
     // }
 
     info!("Time: {}", runtime_services.get_time().unwrap());
+
+    let inithfs_bytes = unsafe { &*relocate_raw_pointer(inithfs_bytes) };
+    let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
+    info!("inithfs {:?}", inithfs);
+    let test_file = inithfs.get_file("test.txt").unwrap();
+    info!("file test.txt = {} {:p}", str::from_utf8(test_file).unwrap(), test_file);
+
+    unsafe {
+        asm!("int $0x80", options(nomem, nostack));
+    }
 
     FRAME_ALLOCATOR.get().unwrap().lock().print_stats();
 

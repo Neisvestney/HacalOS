@@ -1,0 +1,8 @@
+[package]
+name = "create-inithfs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+inithfs = {path = "../inithfs"}
+walkdir = "2.5.0"

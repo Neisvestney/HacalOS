@@ -58,6 +58,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         new_page_table_addr,
         gop,
         font,
+        inithfs_bytes,
         frame_allocator_buffer,
     ) = {
         let bt = system_table.boot_services();
@@ -108,6 +109,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
         };
 
         let font = fs.read(cstr16!("spleen-8x16-v2.psf")).unwrap();
+        let inithfs_bytes = fs.read(cstr16!("inithfs")).unwrap();
 
         // Memory map things
         let memory_map_size = bt.memory_map_size();
@@ -141,6 +143,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
             new_page_table_addr,
             gop_info,
             font,
+            inithfs_bytes,
             frame_allocator_buffer,
         )
     };
@@ -150,6 +153,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
     let mut boot_info = Box::new(BootInfo {
         gop,
         font: Vec::leak(font),
+        inithfs_bytes: Vec::leak(inithfs_bytes),
         frame_allocator_buffer,
         memory_map: None,
         runtime_system_table: None,

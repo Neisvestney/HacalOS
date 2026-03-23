@@ -15,6 +15,7 @@ pub type KernelMainFunction = extern "sysv64" fn(boot_info: BootInfo) -> usize;
 pub struct BootInfo {
     pub gop: GopInfo,
     pub font: &'static [u8],
+    pub inithfs_bytes: &'static [u8],
     pub frame_allocator_buffer: &'static mut [u8],
     pub memory_map: Option<MemoryMap<'static>>,
     pub kernel_memory_map: &'static [KernelMapEntry],

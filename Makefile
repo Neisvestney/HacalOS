@@ -48,13 +48,14 @@ $(KERNEL_ELF): $(KERNEL_SRCS)
 bootloader: $(BOOTLOADER_EFI)
 kernel: $(KERNEL_ELF)
 
-$(OUT)/part.img: $(BOOTLOADER_EFI) $(KERNEL_ELF) | $(OUT)
+$(OUT)/part.img: $(BOOTLOADER_EFI) $(KERNEL_ELF) ./src/files/spleen-8x16-v2.psf $(OUT)/inithfs | $(OUT)
 	truncate -s $$((91669 * 512)) $@
 	mformat -i $@ -h 32 -t 32 -n 64 -c 1
 	mmd -i $@ ::/EFI ::/EFI/BOOT
 	mcopy -i $@ $(BOOTLOADER_EFI) ::/EFI/BOOT/BOOTX64.EFI
 	mcopy -i $@ $(KERNEL_ELF) ::kernel.elf
 	mcopy -i $@ ./src/files/spleen-8x16-v2.psf ::
+	mcopy -i $@ $(OUT)/inithfs ::
 
 $(OUT)/os.img: $(OUT)/part.img | $(OUT)
 	truncate -s $$((93750 * 512)) $@
@@ -62,6 +63,9 @@ $(OUT)/os.img: $(OUT)/part.img | $(OUT)
 	parted $@ -s -a minimal mkpart EFI FAT16 2048s 93716s
 	parted $@ -s -a minimal toggle 1 boot
 	dd if=$(OUT)/part.img of=$@ bs=1M conv=notrunc seek=1
+
+$(OUT)/inithfs: $(shell find $(OUT)/inithfs-root) | $(OUT)/inithfs-root
+	cd src/create-inithfs && cargo run --bin create-inithfs -- ../../$(OUT)/inithfs-root ../../$(OUT)/inithfs
 
 ## --- Image formats ---
 
@@ -86,10 +90,10 @@ clean:
 	rm -rf $(CURDIR)/src/bootloader/target
 	rm -rf $(CURDIR)/src/kernel/target
 
-$(OUT) $(OUT)/iso:
+$(OUT) $(OUT)/iso $(OUT)/inithfs-root:
 	mkdir -p $@
 
 help:
 	@echo "Targets: all, bootloader, kernel, os.img, os.iso, os.vdi, run, clean"
-	@echo "Options: DEBUG=1  — enable QEMU GDB stub"
+	@echo "Options: DEBUG=1   — enable QEMU GDB stub"
 	@echo "         RELEASE=1 — build with --release"

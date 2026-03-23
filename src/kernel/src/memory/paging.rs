@@ -131,8 +131,7 @@ pub fn init_paging(
             ..*gop
         });
 
-        let new_font_pointer = unsafe { relocate_raw_pointer(font.as_ptr()) };
-        let new_font_slice = unsafe {&*slice_from_raw_parts(new_font_pointer, font.len())};
+        let new_font_slice = unsafe {&*relocate_raw_pointer(font)};
         let new_font = Font::new(new_font_slice).unwrap();
 
         let mut console = CONSOLE
