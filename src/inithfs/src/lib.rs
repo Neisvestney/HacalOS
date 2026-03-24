@@ -44,7 +44,7 @@ impl<'a> InitHFsRoot<'a> {
         Ok(())
     }
 
-    pub fn get_file(&self, path: &'a str) -> Result<&'a [u8], InitHFsError> {
+    pub fn get_file_contents(&self, path: &'a str) -> Result<&'a [u8], InitHFsError> {
         let path_parts = path.split('/').collect::<Vec<_>>();
         let count = path_parts.len();
         let mut nodes = &self.nodes;

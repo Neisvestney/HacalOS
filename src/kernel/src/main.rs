@@ -28,6 +28,7 @@ use bootloader_structs::BootInfo;
 use core::arch::asm;
 use core::ops::Deref;
 use core::panic::PanicInfo;
+use goblin::elf::Elf;
 use log::{info, warn};
 use psf2::Font;
 use spin::{Mutex, Once};
@@ -41,6 +42,7 @@ use crate::hpet::{init_hpet, HPET};
 use crate::memory::stack::{allocate_stack, switch_stack_and_jump};
 use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocator;
 use crate::uefi_runtime_services::relocate_uefi_runtime_services;
+use crate::utils::human_bytes::human_bytes;
 use crate::utils::relocate::relocate_raw_pointer;
 
 mod acpi;
@@ -151,15 +153,9 @@ fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<Acpi
 
     info!("Time: {}", runtime_services.get_time().unwrap());
 
-    let inithfs_bytes = unsafe { &*relocate_raw_pointer(inithfs_bytes) };
-    let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
-    info!("inithfs {:?}", inithfs);
-    let test_file = inithfs.get_file("test.txt").unwrap();
-    info!("file test.txt = {} {:p}", str::from_utf8(test_file).unwrap(), test_file);
-
-    unsafe {
-        asm!("int $0x80", options(nomem, nostack));
-    }
+    // unsafe {
+    //     asm!("int $0x80", options(nomem, nostack));
+    // }
 
     FRAME_ALLOCATOR.get().unwrap().lock().print_stats();
 
@@ -208,18 +204,18 @@ fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<Acpi
     //     test()
     // }
     // test();
-
-    {
-        let hpet = HPET.get().unwrap().read();
-        for a in 0..3 {
-            println!("{}", a);
-            hpet.wait_ms(1000);
-        }
-    }
-
-    let mut a = vec![1, 2, 3];
-    a.push(5);
-    info!("{:?} {:#?}", a, a.as_ptr());
+    //
+    // {
+    //     let hpet = HPET.get().unwrap().read();
+    //     for a in 0..3 {
+    //         println!("{}", a);
+    //         hpet.wait_ms(1000);
+    //     }
+    // }
+    //
+    // let mut a = vec![1, 2, 3];
+    // a.push(5);
+    // info!("{:?} {:#?}", a, a.as_ptr());
 
     // info!("Hello before interrupt");
     // x86_64::instructions::interrupts::int3();
@@ -227,6 +223,18 @@ fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<Acpi
     //     asm!("int $0x80", options(nomem, nostack));
     // }
     // info!("Hello after interrupt");
+
+    info!("Loading init app from inithfs");
+    let inithfs_bytes = unsafe { &*relocate_raw_pointer(inithfs_bytes) };
+    let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
+    let file_init_app_bytes = inithfs.get_file_contents("init").unwrap();
+    info!("File size: {}, {:p}", file_init_app_bytes.len(), file_init_app_bytes);
+    let file_init_app = Elf::parse(file_init_app_bytes).expect("Failed to parse Elf");
+    info!("Headers: {:?}", file_init_app.header);
+    info!("Program headers: ");
+    for ph in &file_init_app.program_headers {
+        info!("{:?}", ph);
+    }
 
     loop {
         hlt();
@@ -244,5 +252,7 @@ fn panic(_info: &PanicInfo) -> ! {
         .set_foreground_color(Color::ERROR);
     println!("{}", _info);
 
-    loop {}
+    loop {
+        hlt();
+    }
 }

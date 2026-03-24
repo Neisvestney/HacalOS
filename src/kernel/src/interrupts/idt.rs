@@ -4,6 +4,8 @@ use lazy_static::lazy_static;
 use log::{error, info, warn};
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
+use x86_64::structures::paging::Page;
+use crate::memory::stack::STACK_GUARD_PAGES;
 
 pub const SYSCALL_API_CALL: u8 = 0x80;
 
@@ -86,6 +88,12 @@ extern "x86-interrupt" fn page_fault_handler(
         "EXCEPTION: PAGEFAULT\n{:#?}\n{:#?}\nVirtual address: {:#x?}",
         stack_frame, page_fault_error_code, virt_address
     );
+
+    let stack_guard_pages = STACK_GUARD_PAGES.get().unwrap().read();
+    let virt_address = virt_address.unwrap();
+    if let Some(guard_page) = stack_guard_pages.iter().find(|p| **p == Page::containing_address(virt_address)) {
+        error!("Hit stack guard page: {:#x?}", guard_page);
+    }
 
     panic!("EXCEPTION: PAGE FAULT");
 }
