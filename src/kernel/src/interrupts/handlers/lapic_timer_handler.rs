@@ -6,9 +6,11 @@ use crate::scheduler::SCHEDULE_TICKS;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 use crate::scheduler::global_scheduler::global_scheduler;
 use core::arch::{asm, naked_asm};
+use core::hint;
 use core::sync::atomic::Ordering;
 use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
+use crate::interrupts::iret_wit_context::iret_with_context;
 
 #[unsafe(naked)]
 pub extern "C" fn lapic_timer_entry() -> ! {
@@ -31,22 +33,7 @@ pub extern "C" fn lapic_timer_entry() -> ! {
         // rdi = &CPURegistriesContext
         "mov rdi, rsp",
         "call {func}",
-        "pop r15",
-        "pop r14",
-        "pop r13",
-        "pop r12",
-        "pop r11",
-        "pop r10",
-        "pop r9",
-        "pop r8",
-        "pop rsi",
-        "pop rdi",
-        "pop rbp",
-        "pop rdx",
-        "pop rcx",
-        "pop rbx",
-        "pop rax",
-        "iretq",
+        "hlt",
         func = sym lapic_timer_handler,
         options()
     )
@@ -60,9 +47,9 @@ pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
         false
     };
 
-    unsafe { percpu::lapic().end_of_interrupt() }
-
     let percpu = unsafe { percpu::current() };
+
+    let ticks_left = timer_schedule_tick(percpu);
 
     if ctx.stack_frame.code_segment == segment_selectors().code_selector {
         // Interrupted in kernel
@@ -72,30 +59,48 @@ pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
             .is_ok()
         {
             unsafe {
-                timer_schedule_tick(percpu, ctx);
+                timer_schedule_check(ticks_left, percpu, ctx);
                 asm!("swapgs");
             }
+        } else {
+            unsafe { percpu::lapic().end_of_interrupt() }
         }
     } else {
         // Interrupted user program
         unsafe {
-            timer_schedule_tick(percpu, ctx);
+            timer_schedule_check(ticks_left, percpu, ctx);
         }
     }
 
-    if gs_spaped {
-        asm!("swapgs");
+    unsafe {
+        if gs_spaped {
+            asm!("swapgs");
+        }
+
+        iret_with_context(ctx)
     }
 }
 
-unsafe fn timer_schedule_tick(percpu: &PerCpu, ctx: &mut CpuRegistriesContext) {
-    let global_scheduler = global_scheduler();
-
+fn timer_schedule_tick(percpu: &PerCpu) -> u64 {
     let prev_ticks_left = percpu
         .current_thread_ticks_left
         .fetch_sub(1, Ordering::Relaxed);
 
     if prev_ticks_left <= 1 {
+        percpu.current_thread_ticks_left.store(1, Ordering::Release);
+        return 1;
+    }
+
+    prev_ticks_left
+}
+
+unsafe fn timer_schedule_check(ticks_left: u64, percpu: &PerCpu, ctx: &mut CpuRegistriesContext) {
+    let global_scheduler = global_scheduler();
+
+    unsafe { percpu::lapic().end_of_interrupt() }
+    x86_64::instructions::interrupts::enable();
+
+    if ticks_left <= 1 {
         let stored_thread_context = unsafe { &mut *percpu.current_thread_context.get() };
         let next_thread_context =
             if let Some(mut previous_thread_context) = stored_thread_context.take() {
@@ -121,6 +126,8 @@ unsafe fn timer_schedule_tick(percpu: &PerCpu, ctx: &mut CpuRegistriesContext) {
             percpu
                 .start_scheduling_on_next_tick
                 .store(true, Ordering::Release);
+
+            *stored_thread_context = None;
             loop {
                 // No more thinks to do
                 hlt();
