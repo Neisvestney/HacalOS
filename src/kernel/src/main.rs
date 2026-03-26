@@ -10,7 +10,7 @@ use crate::acpi::acpi_handler::AcpiHandlerImpl;
 use crate::acpi::{get_acpi_tables, get_apic_info};
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
 use crate::gdt::init_gdt;
-use crate::hpet::{HPET, init_hpet};
+use crate::hpet::init_hpet;
 use crate::interrupts::idt::init_idt;
 use crate::interrupts::ioapic::init_ioapic_interrupts;
 use crate::interrupts::lapic::init_lapic;
@@ -26,23 +26,18 @@ use crate::render::color::Color;
 use crate::render::console_renderer::ConsoleRenderer;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::scheduler::global_scheduler::{
-    GlobalScheduler, GlobalSchedulerWrapper, global_scheduler, init_scheduler,
+    GlobalSchedulerWrapper, global_scheduler, init_scheduler,
 };
 use crate::uefi_runtime_services::relocate_uefi_runtime_services;
-use crate::utils::human_bytes::human_bytes;
 use crate::utils::logger::init_logger;
 use crate::utils::relocate::relocate_raw_pointer;
 use ::acpi::platform::ProcessorState;
 use ::acpi::{AcpiTables, InterruptModel};
 use alloc::string::ToString;
-use alloc::vec;
 use bootloader_structs::BootInfo;
-use core::arch::asm;
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
-use core::ops::Deref;
 use core::panic::PanicInfo;
-use goblin::elf::Elf;
 use inithfs::InitHFsRoot;
 use log::{info, warn};
 use psf2::Font;
@@ -51,7 +46,7 @@ use uefi::table::boot::MemoryMap;
 use uefi::table::{Runtime, SystemTable};
 use x86_64::VirtAddr;
 use x86_64::instructions::hlt;
-use x86_64::structures::paging::{OffsetPageTable, Page, Size4KiB, Translate};
+use x86_64::structures::paging::{OffsetPageTable, Page, Size4KiB};
 
 mod acpi;
 mod frame_alloc;

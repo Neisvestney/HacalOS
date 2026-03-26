@@ -1,24 +1,21 @@
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
-use crate::memory::heap::ALLOCATOR;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
-use crate::utils::human_bytes::human_bytes;
 use crate::utils::relocate::{
-    relocate_addr, relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut,
+    relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut,
 };
-use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET, println};
+use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET};
 use alloc::vec::Vec;
 use bootloader_structs::{GopInfo, KernelMapEntry};
 use core::ops::DerefMut;
-use core::ptr::slice_from_raw_parts;
-use log::{info, warn};
+use log::warn;
 use psf2::Font;
 use spin::Mutex;
-use uefi::table::boot::{MemoryMap, MemoryType};
+use uefi::table::boot::MemoryMap;
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::mapper::{CleanUp, MapToError};
 use x86_64::structures::paging::page::PageRangeInclusive;
 use x86_64::structures::paging::{
-    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
+    Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
 
@@ -160,7 +157,7 @@ pub fn unmap_lower_half(memory_map: &MemoryMap) {
                     .unwrap()
                     + i;
 
-            let result = unsafe { mapper.unmap(virtual_frame) };
+            let result =mapper.unmap(virtual_frame);
 
             match result {
                 Ok((_, flush)) => flush.flush(),
@@ -233,7 +230,7 @@ pub fn new_page_table(
     let page_table_frame = frame_allocator.request_page_zeroed().unwrap();
     let page_table_addr = page_table_frame.start_address().as_u64();
     let page_table = page_table_addr as *mut PageTable;
-    let mut page_table_manager = unsafe {
+    let page_table_manager = unsafe {
         OffsetPageTable::new(
             &mut *relocate_raw_pointer_mut(page_table),
             VIRTUAL_TO_PHYSICAL_OFFSET,

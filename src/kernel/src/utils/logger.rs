@@ -1,5 +1,5 @@
 use crate::render::color::Color;
-use crate::{CONSOLE, println, serial_println};
+use crate::{CONSOLE, serial_println};
 use core::fmt::Write;
 use log::{Level, LevelFilter, Metadata, Record, SetLoggerError};
 
@@ -19,11 +19,11 @@ impl log::Log for SimpleLogger {
                 console.set_foreground_color(Color::GRAY);
                 console.write_char('[');
                 console.set_foreground_color(get_level_color(record.level()));
-                console.write_fmt(format_args!("{}", record.level()));
+                let _ =console.write_fmt(format_args!("{}", record.level()));
                 console.set_foreground_color(Color::GRAY);
                 console.write_string("] ");
                 console.set_foreground_color(Color::WHITE);
-                console.write_fmt(format_args!("{}\n", record.args()));
+                let _ = console.write_fmt(format_args!("{}\n", record.args()));
                 serial_println!("[{}] {}", record.level(), record.args());
             });
             // println!("{} - {}", record.level(), record.args());

@@ -4,7 +4,6 @@ use crate::process::thread::ThreadId;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 use x86_64::VirtAddr;
 use x86_64::registers::rflags::RFlags;
-use x86_64::structures::gdt::SegmentSelector;
 use x86_64::structures::paging::PhysFrame;
 
 #[derive(Debug)]

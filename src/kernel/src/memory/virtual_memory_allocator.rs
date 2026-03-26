@@ -1,11 +1,9 @@
 use crate::memory::paging::alloc_memory_range;
-use crate::{PAGE_TABLE_MAPPER, VIRTUAL_MEMORY_REGION_PAGES_COUNT, VIRTUAL_MEMORY_REGION_START};
-use core::ptr::{slice_from_raw_parts, slice_from_raw_parts_mut};
-use log::{info, warn};
+use crate::{VIRTUAL_MEMORY_REGION_PAGES_COUNT, VIRTUAL_MEMORY_REGION_START};
+use core::ptr::slice_from_raw_parts_mut;
 use spin::{Mutex, Once};
-use x86_64::VirtAddr;
-use x86_64::structures::paging::mapper::{MapToError, MapperFlush, UnmapError};
-use x86_64::structures::paging::{Mapper, Page, PhysFrame, Size4KiB};
+use x86_64::structures::paging::mapper::{MapToError, UnmapError};
+use x86_64::structures::paging::{Mapper, Page, Size4KiB};
 
 pub static KERNEL_VIRTUAL_MEMORY_ALLOCATOR: Once<Mutex<VirtualMemoryAllocator>> = Once::new();
 

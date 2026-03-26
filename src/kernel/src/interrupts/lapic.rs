@@ -3,7 +3,6 @@ use crate::interrupts::idt::{LAPIC_ERROR_VECTOR, LAPIC_SPURIOUS_VECTOR, LAPIC_TI
 use crate::memory::paging::map_mmio_single_page;
 use crate::utils::relocate::relocate_addr;
 use log::info;
-use spin::{Mutex, Once};
 use x2apic::lapic::{LocalApic, LocalApicBuilder};
 
 pub fn init_lapic(apic_info: &ApicInfo) -> LocalApic {

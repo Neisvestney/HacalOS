@@ -7,54 +7,49 @@ use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 use crate::scheduler::global_scheduler::global_scheduler;
 use core::arch::naked_asm;
 use core::sync::atomic::Ordering;
-use log::info;
-use volatile::{VolatilePtr, VolatileRef};
+use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
-use x86_64::registers::control::Cr3;
-use x86_64::structures::idt::{HandlerFuncType, InterruptStackFrame};
 
 #[unsafe(naked)]
 pub extern "C" fn lapic_timer_entry() -> ! {
-    unsafe {
-        naked_asm!(
-            "push rax",
-            "push rbx",
-            "push rcx",
-            "push rdx",
-            "push rbp",
-            "push rdi",
-            "push rsi",
-            "push r8",
-            "push r9",
-            "push r10",
-            "push r11",
-            "push r12",
-            "push r13",
-            "push r14",
-            "push r15",
-            // rdi = &CPURegistriesContext
-            "mov rdi, rsp",
-            "call {func}",
-            "pop r15",
-            "pop r14",
-            "pop r13",
-            "pop r12",
-            "pop r11",
-            "pop r10",
-            "pop r9",
-            "pop r8",
-            "pop rsi",
-            "pop rdi",
-            "pop rbp",
-            "pop rdx",
-            "pop rcx",
-            "pop rbx",
-            "pop rax",
-            "iretq",
-            func = sym lapic_timer_handler,
-            options()
-        )
-    }
+    naked_asm!(
+        "push rax",
+        "push rbx",
+        "push rcx",
+        "push rdx",
+        "push rbp",
+        "push rdi",
+        "push rsi",
+        "push r8",
+        "push r9",
+        "push r10",
+        "push r11",
+        "push r12",
+        "push r13",
+        "push r14",
+        "push r15",
+        // rdi = &CPURegistriesContext
+        "mov rdi, rsp",
+        "call {func}",
+        "pop r15",
+        "pop r14",
+        "pop r13",
+        "pop r12",
+        "pop r11",
+        "pop r10",
+        "pop r9",
+        "pop r8",
+        "pop rsi",
+        "pop rdi",
+        "pop rbp",
+        "pop rdx",
+        "pop rcx",
+        "pop rbx",
+        "pop rax",
+        "iretq",
+        func = sym lapic_timer_handler,
+        options()
+    )
 }
 
 pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
@@ -108,12 +103,6 @@ unsafe fn timer_schedule_tick(percpu: &PerCpu, ctx: &mut CpuRegistriesContext) {
             unsafe {
                 write_cr3(next_thread_context.page_table_phys_frame);
             }
-            let a = next_thread_context
-                .cpu_registries_context
-                .stack_frame
-                .instruction_pointer
-                .as_ptr::<u8>()
-                .read_volatile();
 
             *stored_thread_context = Some(next_thread_context);
         } else {

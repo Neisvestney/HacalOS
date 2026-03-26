@@ -33,7 +33,7 @@ pub unsafe fn map_irq(
     polarity: Polarity,
     trigger: TriggerMode,
     dest_lapic_id: u8,
-) {
+) { unsafe {
     let pin = (gsi - gsi_base) as u8;
 
     let mut flags = IrqFlags::empty();
@@ -52,7 +52,7 @@ pub unsafe fn map_irq(
 
     ioapic.set_table_entry(pin, entry);
     ioapic.enable_irq(pin);
-}
+}}
 
 pub fn init_ioapic_interrupts(apic_info: &ApicInfo, lapic_id: u8) {
     unsafe {

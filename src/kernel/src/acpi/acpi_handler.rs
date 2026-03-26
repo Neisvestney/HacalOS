@@ -1,6 +1,5 @@
-use crate::VIRTUAL_TO_PHYSICAL_OFFSET;
 use crate::utils::relocate::relocate_addr;
-use acpi::{AcpiHandler, AcpiTables, PhysicalMapping};
+use acpi::{AcpiHandler, PhysicalMapping};
 use core::ptr::NonNull;
 use x86_64::PhysAddr;
 

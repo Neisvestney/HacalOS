@@ -1,14 +1,12 @@
 use crate::interrupts::handlers::lapic_timer_handler::lapic_timer_entry;
 use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
 use crate::memory::stack::STACK_GUARD_PAGES;
-use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
-use crate::{CONSOLE, gdt, percpu, print, println};
+use crate::{gdt, percpu, print};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use x86_64::registers::control::Cr2;
-use x86_64::structures::gdt::SegmentSelector;
 use x86_64::structures::idt::{
-    HandlerFuncType, InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
+    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
     SelectorErrorCode,
 };
 use x86_64::structures::paging::Page;
@@ -38,7 +36,7 @@ lazy_static! {
             .set_handler_fn(syscall_api_call_handler)
             .set_privilege_level(PrivilegeLevel::Ring3);
 
-        idt[LAPIC_TIMER_VECTOR].set_handler_addr(VirtAddr::new(lapic_timer_entry as u64));
+        idt[LAPIC_TIMER_VECTOR].set_handler_addr(VirtAddr::new(lapic_timer_entry as *const () as u64));
         idt[LAPIC_KEYBOARD_VECTOR].set_handler_fn(lapic_keyboard_handler);
         idt[LAPIC_ERROR_VECTOR].set_handler_fn(lapic_error_handler);
         idt[LAPIC_SPURIOUS_VECTOR].set_handler_fn(lapic_spurious_handler);
@@ -120,7 +118,7 @@ extern "x86-interrupt" fn page_fault_handler(
 
 extern "x86-interrupt" fn syscall_api_call_handler(stack_frame: InterruptStackFrame) {
     info!("SYSCALL: \n{:#?}", stack_frame);
-    let a = 1;
+    let _a = 1;
 }
 
 extern "x86-interrupt" fn double_fault_handler(

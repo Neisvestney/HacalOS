@@ -1,5 +1,4 @@
 use core::ops::Index;
-use x86_64::structures::paging::Page;
 
 #[derive(Debug)]
 pub struct BooleanArray<'a> {

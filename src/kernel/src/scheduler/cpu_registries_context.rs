@@ -1,7 +1,7 @@
 use x86_64::VirtAddr;
 use x86_64::registers::rflags::RFlags;
 use x86_64::structures::gdt::SegmentSelector;
-use x86_64::structures::idt::{InterruptStackFrame, InterruptStackFrameValue};
+use x86_64::structures::idt::InterruptStackFrameValue;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

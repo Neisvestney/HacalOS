@@ -2,7 +2,7 @@ use crate::utils::relocate::relocate_addr;
 use alloc::vec::Vec;
 use uefi::prelude::SystemTable;
 use uefi::table::Runtime;
-use uefi::table::boot::{MemoryMap, MemoryMapIter};
+use uefi::table::boot::MemoryMap;
 use x86_64::PhysAddr;
 
 pub fn relocate_uefi_runtime_services(

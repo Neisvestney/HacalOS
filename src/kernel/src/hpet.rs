@@ -5,7 +5,7 @@ use acpi::{AcpiTables, HpetInfo};
 use core::num::NonZero;
 use ez_hpet::Hpet;
 use log::info;
-use spin::{Mutex, Once, RwLock};
+use spin::{Once, RwLock};
 use x86_64::PhysAddr;
 
 pub static HPET: Once<RwLock<HpetImpl<'static>>> = Once::new();
@@ -38,11 +38,11 @@ impl<'a> HpetImpl<'a> {
         self.wait(fs_per_us, us);
     }
 
-    pub fn get_hpet(&self) -> &Hpet {
+    pub fn get_hpet(&self) -> &Hpet<'_> {
         &self.0
     }
 
-    pub fn get_hpet_mut(&mut self) -> &'a mut Hpet {
+    pub fn get_hpet_mut(&mut self) -> &'a mut Hpet<'_> {
         &mut self.0
     }
 }

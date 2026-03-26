@@ -4,7 +4,7 @@ use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
-use spin::{RwLock, RwLockReadGuard};
+use spin::RwLock;
 
 pub struct GlobalScheduler {
     pub threads_queue: RwLock<VecDeque<Box<ThreadContext>>>,

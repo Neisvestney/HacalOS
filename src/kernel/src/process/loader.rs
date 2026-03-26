@@ -9,7 +9,7 @@ use goblin::elf::Elf;
 use goblin::elf64::program_header::PT_LOAD;
 use uefi::table::boot::PAGE_SIZE;
 use x86_64::VirtAddr;
-use x86_64::structures::paging::{FrameAllocator, Mapper, Page, PageTable, PageTableFlags};
+use x86_64::structures::paging::{Mapper, Page, PageTable, PageTableFlags};
 
 pub fn load_program_to_memory(
     process_id: ProcessId,

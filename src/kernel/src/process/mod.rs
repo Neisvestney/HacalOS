@@ -10,9 +10,8 @@ use crate::{
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Debug, Formatter};
-use pc_keyboard::KeyCode::E;
 use x86_64::structures::paging::{PageTable, PhysFrame};
-use x86_64::{PhysAddr, VirtAddr};
+use x86_64::VirtAddr;
 
 pub mod loader;
 pub mod memory_map;
