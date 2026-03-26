@@ -11,8 +11,6 @@ use x86_64::structures::idt::{
 use x86_64::structures::paging::Page;
 use x86_64::{PrivilegeLevel, VirtAddr};
 
-pub const SYSCALL_API_CALL: u8 = 0x80;
-
 pub const LAPIC_TIMER_VECTOR: u8 = 0x20;
 pub const LAPIC_KEYBOARD_VECTOR: u8 = IO_APIC_BASE_OFFSET + KEYBOARD_ISA_IRQ;
 pub const LAPIC_ERROR_VECTOR: u8 = 0xFE;
@@ -31,10 +29,6 @@ lazy_static! {
         idt.double_fault
             .set_handler_fn(double_fault_handler)
             .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
-
-        idt[SYSCALL_API_CALL]
-            .set_handler_fn(syscall_api_call_handler)
-            .set_privilege_level(PrivilegeLevel::Ring3);
 
         idt[LAPIC_TIMER_VECTOR]
             .set_handler_addr(VirtAddr::new(lapic_timer_entry as *const () as u64));
@@ -119,11 +113,6 @@ extern "x86-interrupt" fn page_fault_handler(
     }
 
     panic!("EXCEPTION: PAGE FAULT");
-}
-
-extern "x86-interrupt" fn syscall_api_call_handler(stack_frame: InterruptStackFrame) {
-    info!("SYSCALL: \n{:#?}", stack_frame);
-    let _a = 1;
 }
 
 extern "x86-interrupt" fn double_fault_handler(
