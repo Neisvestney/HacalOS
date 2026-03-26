@@ -1,11 +1,11 @@
+use crate::memory::paging::alloc_memory_range;
+use crate::{PAGE_TABLE_MAPPER, VIRTUAL_MEMORY_REGION_PAGES_COUNT, VIRTUAL_MEMORY_REGION_START};
 use core::ptr::{slice_from_raw_parts, slice_from_raw_parts_mut};
 use log::{info, warn};
 use spin::{Mutex, Once};
-use x86_64::structures::paging::{Mapper, Page, PhysFrame, Size4KiB};
-use x86_64::structures::paging::mapper::{MapToError, MapperFlush, UnmapError};
 use x86_64::VirtAddr;
-use crate::memory::paging::alloc_memory_range;
-use crate::{PAGE_TABLE_MAPPER, VIRTUAL_MEMORY_REGION_PAGES_COUNT, VIRTUAL_MEMORY_REGION_START};
+use x86_64::structures::paging::mapper::{MapToError, MapperFlush, UnmapError};
+use x86_64::structures::paging::{Mapper, Page, PhysFrame, Size4KiB};
 
 pub static KERNEL_VIRTUAL_MEMORY_ALLOCATOR: Once<Mutex<VirtualMemoryAllocator>> = Once::new();
 
@@ -27,9 +27,13 @@ impl VirtualMemoryAllocator {
         }
     }
 
-    pub fn alloc_pages(&mut self, count: u64, page_table_mapper: &mut impl Mapper<Size4KiB>) -> Result<*const [u8], VirtualMemoryAllocatorError> {
+    pub fn alloc_pages(
+        &mut self,
+        count: u64,
+        page_table_mapper: &mut impl Mapper<Size4KiB>,
+    ) -> Result<*const [u8], VirtualMemoryAllocatorError> {
         if count > self.region_pages_count - self.pages_allocated {
-            return Err(VirtualMemoryAllocatorError::OutOfMemory)
+            return Err(VirtualMemoryAllocatorError::OutOfMemory);
         }
 
         let page_range = {
@@ -40,14 +44,22 @@ impl VirtualMemoryAllocator {
 
         self.pages_allocated += count;
 
-        alloc_memory_range(page_range, page_table_mapper, self.flush).map_err(VirtualMemoryAllocatorError::MapToError)?;
+        alloc_memory_range(page_range, page_table_mapper, self.flush)
+            .map_err(VirtualMemoryAllocatorError::MapToError)?;
 
-        Ok(slice_from_raw_parts_mut(page_range.start.start_address().as_mut_ptr(), page_range.size() as usize))
+        Ok(slice_from_raw_parts_mut(
+            page_range.start.start_address().as_mut_ptr(),
+            page_range.size() as usize,
+        ))
     }
 
-    pub fn alloc_pages_with_protection_page(&mut self, count: u64, page_table_mapper: &mut impl Mapper<Size4KiB>) -> Result<(*const [u8], Page<Size4KiB>), VirtualMemoryAllocatorError> {
+    pub fn alloc_pages_with_protection_page(
+        &mut self,
+        count: u64,
+        page_table_mapper: &mut impl Mapper<Size4KiB>,
+    ) -> Result<(*const [u8], Page<Size4KiB>), VirtualMemoryAllocatorError> {
         if count + 1 > self.region_pages_count - self.pages_allocated {
-            return Err(VirtualMemoryAllocatorError::OutOfMemory)
+            return Err(VirtualMemoryAllocatorError::OutOfMemory);
         }
 
         let protection_page = self.region_start + self.pages_allocated;
@@ -68,12 +80,19 @@ impl VirtualMemoryAllocator {
                 }
             }
             Err(UnmapError::PageNotMapped) => {}
-            Err(e) => return Err(VirtualMemoryAllocatorError::UnmapError(e))
+            Err(e) => return Err(VirtualMemoryAllocatorError::UnmapError(e)),
         };
 
-        alloc_memory_range(page_range, page_table_mapper, self.flush).map_err(VirtualMemoryAllocatorError::MapToError)?;
+        alloc_memory_range(page_range, page_table_mapper, self.flush)
+            .map_err(VirtualMemoryAllocatorError::MapToError)?;
 
-        Ok((slice_from_raw_parts_mut(page_range.start.start_address().as_mut_ptr(), page_range.size() as usize), protection_page))
+        Ok((
+            slice_from_raw_parts_mut(
+                page_range.start.start_address().as_mut_ptr(),
+                page_range.size() as usize,
+            ),
+            protection_page,
+        ))
     }
 }
 
@@ -85,5 +104,11 @@ pub enum VirtualMemoryAllocatorError {
 }
 
 pub fn init_kernel_virtual_memory_allocator() {
-    KERNEL_VIRTUAL_MEMORY_ALLOCATOR.call_once(|| Mutex::new(VirtualMemoryAllocator::new(VIRTUAL_MEMORY_REGION_START, VIRTUAL_MEMORY_REGION_PAGES_COUNT, true)));
+    KERNEL_VIRTUAL_MEMORY_ALLOCATOR.call_once(|| {
+        Mutex::new(VirtualMemoryAllocator::new(
+            VIRTUAL_MEMORY_REGION_START,
+            VIRTUAL_MEMORY_REGION_PAGES_COUNT,
+            true,
+        ))
+    });
 }

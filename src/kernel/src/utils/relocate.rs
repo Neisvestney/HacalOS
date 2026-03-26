@@ -18,7 +18,6 @@ pub unsafe fn relocate_raw_pointer<T: ?Sized>(pointer: *const T) -> *const T {
     ptr::from_raw_parts(addr as *const (), ptr::metadata(pointer))
 }
 
-
 pub unsafe fn relocate_raw_pointer_mut<T: ?Sized>(pointer: *mut T) -> *mut T {
     // pointer.byte_offset(VIRTUAL_TO_PHYSICAL_OFFSET.as_u64() as isize)
 

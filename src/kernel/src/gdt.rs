@@ -1,13 +1,13 @@
+use crate::memory::stack::allocate_stack;
 use alloc::boxed::Box;
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
-use x86_64::{PrivilegeLevel, VirtAddr};
 use x86_64::instructions::segmentation::Segment;
 use x86_64::instructions::tables::load_tss;
 use x86_64::registers::segmentation::{CS, SS};
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::tss::TaskStateSegment;
-use crate::memory::stack::allocate_stack;
+use x86_64::{PrivilegeLevel, VirtAddr};
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 1;
 pub const PAGE_FAULT_IST_INDEX: u16 = 2;
@@ -17,10 +17,12 @@ static SEGMENTS: SelectorsWrapper = SelectorsWrapper(UnsafeCell::new(MaybeUninit
 fn build_tss(kernel_stack_top: VirtAddr) -> &'static mut TaskStateSegment {
     let tss = Box::leak(Box::new(TaskStateSegment::new()));
 
-    let (double_fault_stack, _) = allocate_stack().expect("Cannot allocate stack for DOUBLE_FAULT_IST_INDEX");
+    let (double_fault_stack, _) =
+        allocate_stack().expect("Cannot allocate stack for DOUBLE_FAULT_IST_INDEX");
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = double_fault_stack;
 
-    let (page_fault_stack, _) = allocate_stack().expect("Cannot allocate stack for PAGE_FAULT_IST_INDEX");
+    let (page_fault_stack, _) =
+        allocate_stack().expect("Cannot allocate stack for PAGE_FAULT_IST_INDEX");
     tss.interrupt_stack_table[PAGE_FAULT_IST_INDEX as usize] = page_fault_stack;
 
     tss.privilege_stack_table[PrivilegeLevel::Ring0 as usize] = kernel_stack_top; // No magic numbers on my watch
@@ -34,7 +36,7 @@ fn build_gdt(tss: *const TaskStateSegment) -> (&'static mut GlobalDescriptorTabl
     let data_selector = gdt.append(Descriptor::kernel_data_segment());
     let user_code_selector = gdt.append(Descriptor::user_code_segment());
     let user_data_selector = gdt.append(Descriptor::user_data_segment());
-    let tss_selector = unsafe {gdt.append(Descriptor::tss_segment_unchecked(tss))};
+    let tss_selector = unsafe { gdt.append(Descriptor::tss_segment_unchecked(tss)) };
     (
         gdt,
         Selectors {
@@ -61,7 +63,12 @@ pub struct SelectorsWrapper(pub UnsafeCell<MaybeUninit<Selectors>>);
 unsafe impl Sync for SelectorsWrapper {}
 unsafe impl Send for SelectorsWrapper {}
 
-pub fn init_gdt(kernel_stack_top: VirtAddr) -> (&'static mut GlobalDescriptorTable, &'static mut TaskStateSegment) {
+pub fn init_gdt(
+    kernel_stack_top: VirtAddr,
+) -> (
+    &'static mut GlobalDescriptorTable,
+    &'static mut TaskStateSegment,
+) {
     let tss = build_tss(kernel_stack_top);
     let (gdt, selectors) = build_gdt(tss);
 
@@ -83,7 +90,5 @@ pub fn init_gdt(kernel_stack_top: VirtAddr) -> (&'static mut GlobalDescriptorTab
 }
 
 pub fn segment_selectors() -> &'static Selectors {
-    unsafe {
-        (*SEGMENTS.0.get()).assume_init_ref()
-    }
+    unsafe { (*SEGMENTS.0.get()).assume_init_ref() }
 }

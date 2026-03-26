@@ -6,7 +6,11 @@ use x2apic::lapic::LocalApic;
 use x86_64::structures::gdt::GlobalDescriptorTable;
 use x86_64::structures::tss::TaskStateSegment;
 
-pub fn init_per_cpu(local_apic: LocalApic, gdt: &'static mut GlobalDescriptorTable, tss: &'static mut TaskStateSegment) {
+pub fn init_per_cpu(
+    local_apic: LocalApic,
+    gdt: &'static mut GlobalDescriptorTable,
+    tss: &'static mut TaskStateSegment,
+) {
     let cpu_id = unsafe { local_apic.id() };
 
     let percpu = Box::leak(Box::new(PerCpu {

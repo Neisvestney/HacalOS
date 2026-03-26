@@ -1,15 +1,18 @@
+use crate::interrupts::handlers::lapic_timer_handler::lapic_timer_entry;
 use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
-use crate::{gdt, percpu, print, println, CONSOLE};
+use crate::memory::stack::STACK_GUARD_PAGES;
+use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
+use crate::{CONSOLE, gdt, percpu, print, println};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use x86_64::registers::control::Cr2;
 use x86_64::structures::gdt::SegmentSelector;
-use x86_64::structures::idt::{HandlerFuncType, InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode, SelectorErrorCode};
+use x86_64::structures::idt::{
+    HandlerFuncType, InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
+    SelectorErrorCode,
+};
 use x86_64::structures::paging::Page;
 use x86_64::{PrivilegeLevel, VirtAddr};
-use crate::interrupts::handlers::lapic_timer_handler::lapic_timer_entry;
-use crate::memory::stack::STACK_GUARD_PAGES;
-use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 
 pub const SYSCALL_API_CALL: u8 = 0x80;
 
@@ -21,8 +24,7 @@ pub const LAPIC_SPURIOUS_VECTOR: u8 = 0xFF;
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = unsafe {
         let mut idt = InterruptDescriptorTable::new();
-        idt.breakpoint
-            .set_handler_fn(breakpoint_handler);
+        idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.general_protection_fault
             .set_handler_fn(general_protection_fault_handler);
         idt.page_fault
@@ -87,7 +89,10 @@ extern "x86-interrupt" fn general_protection_fault_handler(
     error_code: u64,
 ) {
     let error_code = SelectorErrorCode::new(error_code);
-    panic!("EXCEPTION: GENERAL PROTECTION FAULT\n{:#?}\nError Code: {:?}", stack_frame, error_code);
+    panic!(
+        "EXCEPTION: GENERAL PROTECTION FAULT\n{:#?}\nError Code: {:?}",
+        stack_frame, error_code
+    );
 }
 
 extern "x86-interrupt" fn page_fault_handler(
@@ -103,7 +108,10 @@ extern "x86-interrupt" fn page_fault_handler(
 
     let stack_guard_pages = STACK_GUARD_PAGES.get().unwrap().read();
     let virt_address = virt_address.unwrap();
-    if let Some(guard_page) = stack_guard_pages.iter().find(|p| **p == Page::containing_address(virt_address)) {
+    if let Some(guard_page) = stack_guard_pages
+        .iter()
+        .find(|p| **p == Page::containing_address(virt_address))
+    {
         error!("Hit stack guard page: {:#x?}", guard_page);
     }
 
@@ -119,7 +127,10 @@ extern "x86-interrupt" fn double_fault_handler(
     stack_frame: InterruptStackFrame,
     error_code: u64,
 ) -> ! {
-    panic!("EXCEPTION: DOUBLE FAULT\n{:#?}\n{:x}", stack_frame, error_code);
+    panic!(
+        "EXCEPTION: DOUBLE FAULT\n{:#?}\n{:x}",
+        stack_frame, error_code
+    );
 }
 
 extern "x86-interrupt" fn lapic_spurious_handler(_frame: InterruptStackFrame) {

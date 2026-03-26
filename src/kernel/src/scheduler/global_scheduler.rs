@@ -1,6 +1,6 @@
-use alloc::boxed::Box;
 use crate::GLOBAL_SCHEDULER;
 use crate::scheduler::thread_context::ThreadContext;
+use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
@@ -21,7 +21,10 @@ impl GlobalScheduler {
         self.threads_queue.write().push_back(Box::new(thread));
     }
 
-    pub fn push_thread_back_and_get_next(&self, thread: Box<ThreadContext>) -> Option<Box<ThreadContext>> {
+    pub fn push_thread_back_and_get_next(
+        &self,
+        thread: Box<ThreadContext>,
+    ) -> Option<Box<ThreadContext>> {
         let mut threads_queue = self.threads_queue.write();
         threads_queue.push_front(thread);
         self.get_next_in(&mut threads_queue)
@@ -32,7 +35,10 @@ impl GlobalScheduler {
         self.get_next_in(&mut threads_queue)
     }
 
-    fn get_next_in(&self, threads_queue: &mut VecDeque<Box<ThreadContext>>) -> Option<Box<ThreadContext>> {
+    fn get_next_in(
+        &self,
+        threads_queue: &mut VecDeque<Box<ThreadContext>>,
+    ) -> Option<Box<ThreadContext>> {
         threads_queue.pop_front()
     }
 }
@@ -44,12 +50,13 @@ unsafe impl Send for GlobalSchedulerWrapper {}
 
 pub fn init_scheduler() {
     unsafe {
-        GLOBAL_SCHEDULER.0.get().replace(MaybeUninit::new(GlobalScheduler::new()));
+        GLOBAL_SCHEDULER
+            .0
+            .get()
+            .replace(MaybeUninit::new(GlobalScheduler::new()));
     }
 }
 
 pub fn global_scheduler() -> &'static GlobalScheduler {
-    unsafe {
-        (*GLOBAL_SCHEDULER.0.get()).assume_init_ref()
-    }
+    unsafe { (*GLOBAL_SCHEDULER.0.get()).assume_init_ref() }
 }

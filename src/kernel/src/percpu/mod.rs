@@ -1,13 +1,13 @@
 mod gsbase;
 pub mod init;
 
+use crate::scheduler::thread_context::ThreadContext;
 use alloc::boxed::Box;
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use x2apic::lapic::LocalApic;
 use x86_64::structures::gdt::GlobalDescriptorTable;
 use x86_64::structures::tss::TaskStateSegment;
-use crate::scheduler::thread_context::ThreadContext;
 
 #[repr(C)]
 pub struct PerCpu {
@@ -36,6 +36,8 @@ pub unsafe fn lapic() -> &'static mut LocalApic {
 
 pub fn start_scheduling_on_next_tick() {
     unsafe {
-        current().start_scheduling_on_next_tick.store(true, Ordering::Relaxed)
+        current()
+            .start_scheduling_on_next_tick
+            .store(true, Ordering::Relaxed)
     }
 }

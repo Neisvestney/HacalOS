@@ -1,7 +1,12 @@
-use alloc::vec::Vec;
+use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
+use crate::memory::heap::ALLOCATOR;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
-use crate::utils::relocate::{relocate_addr, relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut};
+use crate::utils::human_bytes::human_bytes;
+use crate::utils::relocate::{
+    relocate_addr, relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut,
+};
 use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET, println};
+use alloc::vec::Vec;
 use bootloader_structs::{GopInfo, KernelMapEntry};
 use core::ops::DerefMut;
 use core::ptr::slice_from_raw_parts;
@@ -16,9 +21,6 @@ use x86_64::structures::paging::{
     FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
-use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
-use crate::memory::heap::ALLOCATOR;
-use crate::utils::human_bytes::human_bytes;
 
 pub fn init_paging(
     memory_map: &MemoryMap,
@@ -132,13 +134,10 @@ pub fn init_paging(
             ..*gop
         });
 
-        let new_font_slice = unsafe {&*relocate_raw_pointer(font)};
+        let new_font_slice = unsafe { &*relocate_raw_pointer(font) };
         let new_font = Font::new(new_font_slice).unwrap();
 
-        let mut console = CONSOLE
-            .get()
-            .unwrap()
-            .lock();
+        let mut console = CONSOLE.get().unwrap().lock();
 
         console.frame_buffer_renderer = new_frame_buffer_renderer;
         console.font = new_font;
@@ -157,7 +156,9 @@ pub fn unmap_lower_half(memory_map: &MemoryMap) {
     for memory_map_entry in relocated_memory_map {
         for i in 0..memory_map_entry.page_count {
             let virtual_frame =
-                Page::<Size4KiB>::from_start_address(VirtAddr::new(memory_map_entry.phys_start)).unwrap() + i;
+                Page::<Size4KiB>::from_start_address(VirtAddr::new(memory_map_entry.phys_start))
+                    .unwrap()
+                    + i;
 
             let result = unsafe { mapper.unmap(virtual_frame) };
 
@@ -186,8 +187,8 @@ pub fn alloc_memory_range(
             .map_err(|_| MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         unsafe {
-            let mapper_flush = page_table_mapper
-                .map_to(page, frame, flags, frame_allocator.deref_mut())?;
+            let mapper_flush =
+                page_table_mapper.map_to(page, frame, flags, frame_allocator.deref_mut())?;
 
             if flush {
                 mapper_flush.flush();
@@ -226,12 +227,18 @@ pub unsafe fn write_cr3(page_table_addr: PhysFrame) {
     }
 }
 
-pub fn new_page_table(frame_allocator: &mut BooleanArrayFrameAllocator) -> (PhysFrame, OffsetPageTable<'static>) {
+pub fn new_page_table(
+    frame_allocator: &mut BooleanArrayFrameAllocator,
+) -> (PhysFrame, OffsetPageTable<'static>) {
     let page_table_frame = frame_allocator.request_page_zeroed().unwrap();
     let page_table_addr = page_table_frame.start_address().as_u64();
     let page_table = page_table_addr as *mut PageTable;
-    let mut page_table_manager =
-        unsafe { OffsetPageTable::new(&mut *relocate_raw_pointer_mut(page_table), VIRTUAL_TO_PHYSICAL_OFFSET) };
+    let mut page_table_manager = unsafe {
+        OffsetPageTable::new(
+            &mut *relocate_raw_pointer_mut(page_table),
+            VIRTUAL_TO_PHYSICAL_OFFSET,
+        )
+    };
 
     (page_table_frame, page_table_manager)
 }
@@ -242,6 +249,8 @@ pub fn copy_kernel_mapping(target: &mut PageTable, from: &PageTable) {
     }
 }
 
-pub unsafe fn page_table_mapper_from_table_pointer(page_table_pointer: *mut PageTable) -> OffsetPageTable<'static> {
+pub unsafe fn page_table_mapper_from_table_pointer(
+    page_table_pointer: *mut PageTable,
+) -> OffsetPageTable<'static> {
     unsafe { OffsetPageTable::new(&mut *page_table_pointer, VIRTUAL_TO_PHYSICAL_OFFSET) }
 }

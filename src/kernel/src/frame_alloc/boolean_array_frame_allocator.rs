@@ -1,12 +1,12 @@
-use core::slice;
 use crate::println;
 use crate::utils::boolean_array::BooleanArray;
 use crate::utils::human_bytes::human_bytes;
+use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
+use core::slice;
 use log::info;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
-use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 
 #[derive(Debug)]
 pub struct BooleanArrayFrameAllocator<'a> {
@@ -63,8 +63,9 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     }
 
     pub unsafe fn relocate_buffer(&mut self) {
-        let new_buffer_ptr = unsafe { relocate_raw_pointer_mut(self.boolean_array.get_ptr_mut())};
-        let new_buffer_slice = unsafe { slice::from_raw_parts_mut(new_buffer_ptr, self.boolean_array.buffer_size()) };
+        let new_buffer_ptr = unsafe { relocate_raw_pointer_mut(self.boolean_array.get_ptr_mut()) };
+        let new_buffer_slice =
+            unsafe { slice::from_raw_parts_mut(new_buffer_ptr, self.boolean_array.buffer_size()) };
         self.boolean_array = BooleanArray::new(new_buffer_slice);
     }
 
@@ -156,7 +157,9 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     }
 
     pub fn get_used_memory_bytes(&self) -> u64 {
-        self.get_total_memory_bytes() - self.get_free_memory_bytes() - self.get_reserved_memory_bytes()
+        self.get_total_memory_bytes()
+            - self.get_free_memory_bytes()
+            - self.get_reserved_memory_bytes()
     }
 
     pub fn print_stats(&self) {

@@ -1,12 +1,12 @@
-use core::num::NonZero;
+use crate::acpi::acpi_handler::AcpiHandlerImpl;
+use crate::memory::paging::map_mmio_single_page;
+use crate::utils::relocate::relocate_addr;
 use acpi::{AcpiTables, HpetInfo};
+use core::num::NonZero;
 use ez_hpet::Hpet;
 use log::info;
 use spin::{Mutex, Once, RwLock};
 use x86_64::PhysAddr;
-use crate::acpi::acpi_handler::AcpiHandlerImpl;
-use crate::memory::paging::map_mmio_single_page;
-use crate::utils::relocate::relocate_addr;
 
 pub static HPET: Once<RwLock<HpetImpl<'static>>> = Once::new();
 
@@ -53,13 +53,19 @@ pub fn init_hpet(acpi_tables: &AcpiTables<AcpiHandlerImpl>) {
         info!("HPET info: {:#x?}", hpet_info);
         let hpet_phys_addr = PhysAddr::new(hpet_info.base_address as u64);
         map_mmio_single_page(hpet_phys_addr);
-        let mut hpet = Hpet::new(NonZero::new(relocate_addr(hpet_phys_addr).as_u64() as usize).unwrap());
+        let mut hpet =
+            Hpet::new(NonZero::new(relocate_addr(hpet_phys_addr).as_u64() as usize).unwrap());
 
         hpet.set_enable(true);
 
         let period_fs = hpet.main_counter_tick_period();
-        let freq_hz   = 1_000_000_000_000_000u64 / period_fs as u64;
-        info!("HPET period: {} fs, freq: {} Hz, supports_64_bit_mode: {}", period_fs, freq_hz, hpet.supports_64_bit_mode());
+        let freq_hz = 1_000_000_000_000_000u64 / period_fs as u64;
+        info!(
+            "HPET period: {} fs, freq: {} Hz, supports_64_bit_mode: {}",
+            period_fs,
+            freq_hz,
+            hpet.supports_64_bit_mode()
+        );
         HPET.call_once(|| RwLock::new(HpetImpl::new(hpet)));
     }
 }
