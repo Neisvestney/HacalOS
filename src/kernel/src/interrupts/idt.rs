@@ -24,6 +24,7 @@ lazy_static! {
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.general_protection_fault
             .set_handler_fn(general_protection_fault_handler);
+        idt.invalid_opcode.set_handler_fn(invalid_opcode_handler);
         idt.page_fault
             .set_handler_fn(page_fault_handler)
             .set_stack_index(gdt::PAGE_FAULT_IST_INDEX);
@@ -91,6 +92,10 @@ extern "x86-interrupt" fn general_protection_fault_handler(
         "EXCEPTION: GENERAL PROTECTION FAULT\n{:#?}\nError Code: {:?}",
         stack_frame, error_code
     );
+}
+
+extern "x86-interrupt" fn invalid_opcode_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: INVALID OPCODE\n{:#?}\n", stack_frame,);
 }
 
 extern "x86-interrupt" fn page_fault_handler(

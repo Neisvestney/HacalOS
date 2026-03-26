@@ -34,8 +34,8 @@ fn build_gdt(tss: *const TaskStateSegment) -> (&'static mut GlobalDescriptorTabl
     let gdt = Box::leak(Box::new(GlobalDescriptorTable::new()));
     let code_selector = gdt.append(Descriptor::kernel_code_segment());
     let data_selector = gdt.append(Descriptor::kernel_data_segment());
-    let user_code_selector = gdt.append(Descriptor::user_code_segment());
     let user_data_selector = gdt.append(Descriptor::user_data_segment());
+    let user_code_selector = gdt.append(Descriptor::user_code_segment());
     let tss_selector = unsafe { gdt.append(Descriptor::tss_segment_unchecked(tss)) };
     (
         gdt,

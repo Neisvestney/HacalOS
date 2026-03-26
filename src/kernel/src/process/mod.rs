@@ -50,6 +50,7 @@ impl Process {
                 USER_PROCESS_VIRTUAL_MEMORY_REGION_START,
                 USER_PROCESS_VIRTUAL_MEMORY_REGION_PAGES_COUNT,
                 false,
+                true,
             ),
         }
     }

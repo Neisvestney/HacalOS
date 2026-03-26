@@ -13,15 +13,22 @@ pub struct VirtualMemoryAllocator {
     region_pages_count: u64,
     pages_allocated: u64,
     flush: bool,
+    user: bool,
 }
 
 impl VirtualMemoryAllocator {
-    pub fn new(region_start: Page<Size4KiB>, region_pages_count: u64, flush: bool) -> Self {
+    pub fn new(
+        region_start: Page<Size4KiB>,
+        region_pages_count: u64,
+        flush: bool,
+        user: bool,
+    ) -> Self {
         VirtualMemoryAllocator {
             region_start,
             region_pages_count,
             pages_allocated: 0,
             flush,
+            user,
         }
     }
 
@@ -42,7 +49,7 @@ impl VirtualMemoryAllocator {
 
         self.pages_allocated += count;
 
-        alloc_memory_range(page_range, page_table_mapper, self.flush)
+        alloc_memory_range(page_range, page_table_mapper, self.flush, self.user)
             .map_err(VirtualMemoryAllocatorError::MapToError)?;
 
         Ok(slice_from_raw_parts_mut(
@@ -81,7 +88,7 @@ impl VirtualMemoryAllocator {
             Err(e) => return Err(VirtualMemoryAllocatorError::UnmapError(e)),
         };
 
-        alloc_memory_range(page_range, page_table_mapper, self.flush)
+        alloc_memory_range(page_range, page_table_mapper, self.flush, self.user)
             .map_err(VirtualMemoryAllocatorError::MapToError)?;
 
         Ok((
@@ -107,6 +114,7 @@ pub fn init_kernel_virtual_memory_allocator() {
             VIRTUAL_MEMORY_REGION_START,
             VIRTUAL_MEMORY_REGION_PAGES_COUNT,
             true,
+            false,
         ))
     });
 }

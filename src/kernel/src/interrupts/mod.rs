@@ -1,4 +1,4 @@
-mod handlers;
+pub mod handlers;
 pub mod idt;
 pub mod ioapic;
 pub mod lapic;

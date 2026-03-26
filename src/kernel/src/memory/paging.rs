@@ -173,6 +173,7 @@ pub fn alloc_memory_range(
     page_range: PageRangeInclusive<Size4KiB>,
     page_table_mapper: &mut impl Mapper<Size4KiB>,
     flush: bool,
+    user: bool,
 ) -> Result<(), MapToError<Size4KiB>> {
     let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
 
@@ -180,7 +181,11 @@ pub fn alloc_memory_range(
         let frame = frame_allocator
             .request_page_zeroed()
             .map_err(|_| MapToError::FrameAllocationFailed)?;
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        let mut flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        if user {
+            flags |= PageTableFlags::USER_ACCESSIBLE;
+        }
+
         unsafe {
             let mapper_flush =
                 page_table_mapper.map_to(page, frame, flags, frame_allocator.deref_mut())?;

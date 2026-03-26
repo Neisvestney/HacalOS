@@ -29,6 +29,7 @@ use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::scheduler::global_scheduler::{
     GlobalSchedulerWrapper, global_scheduler, init_scheduler,
 };
+use crate::syscall::init_syscalls;
 use crate::uefi_runtime_services::relocate_uefi_runtime_services;
 use crate::utils::logger::init_logger;
 use crate::utils::relocate::relocate_raw_pointer;
@@ -61,6 +62,7 @@ mod process;
 mod render;
 mod scheduler;
 mod serial;
+mod syscall;
 mod uefi_runtime_services;
 mod utils;
 
@@ -140,11 +142,12 @@ fn init(boot_info: BootInfo) {
         bsp_lapic_id <= u8::MAX as u32,
         "BSP lapic id too large. This should not be possible"
     );
-    init_per_cpu(local_apic, gdt, tss);
+    init_per_cpu(local_apic, gdt, tss, bsp_kernel_stack_top);
     init_ioapic_interrupts(&apic_info, bsp_lapic_id as u8);
     init_hpet(&acpi_tables);
     init_scheduler();
     init_processes_manager();
+    init_syscalls();
 
     let runtime_system_table = boot_info.runtime_system_table.unwrap();
     info!("Jumping to new stack");
@@ -283,11 +286,7 @@ fn main(
     global_scheduler().schedule_thread(thread_context);
 
     info!("`init` program ready, starting scheduler");
-    start_scheduling_on_next_tick();
-
-    loop {
-        hlt();
-    }
+    start_scheduling_on_next_tick()
 }
 
 /// This function is called on panic.

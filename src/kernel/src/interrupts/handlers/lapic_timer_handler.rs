@@ -5,7 +5,7 @@ use crate::percpu::PerCpu;
 use crate::scheduler::SCHEDULE_TICKS;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 use crate::scheduler::global_scheduler::global_scheduler;
-use core::arch::naked_asm;
+use core::arch::{asm, naked_asm};
 use core::sync::atomic::Ordering;
 use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
@@ -53,6 +53,13 @@ pub extern "C" fn lapic_timer_entry() -> ! {
 }
 
 pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
+    let gs_spaped = if ctx.stack_frame.code_segment != segment_selectors().code_selector {
+        asm!("swapgs");
+        true
+    } else {
+        false
+    };
+
     unsafe { percpu::lapic().end_of_interrupt() }
 
     let percpu = unsafe { percpu::current() };
@@ -66,6 +73,7 @@ pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
         {
             unsafe {
                 timer_schedule_tick(percpu, ctx);
+                asm!("swapgs");
             }
         }
     } else {
@@ -73,6 +81,10 @@ pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
         unsafe {
             timer_schedule_tick(percpu, ctx);
         }
+    }
+
+    if gs_spaped {
+        asm!("swapgs");
     }
 }
 
