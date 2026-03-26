@@ -1,0 +1,5 @@
+pub enum ProcessMemoryMapEntry {
+    File {
+
+    }
+}

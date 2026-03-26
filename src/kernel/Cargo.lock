@@ -184,6 +184,7 @@ dependencies = [
  "spin 0.10.0",
  "uart_16550",
  "uefi",
+ "volatile 0.6.1",
  "x2apic",
  "x86_64",
 ]

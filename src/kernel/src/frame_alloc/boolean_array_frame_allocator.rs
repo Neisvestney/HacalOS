@@ -6,7 +6,7 @@ use log::info;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
-use crate::utils::relocate::relocate_raw_pointer_mut;
+use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 
 #[derive(Debug)]
 pub struct BooleanArrayFrameAllocator<'a> {
@@ -118,6 +118,17 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         }
 
         Err(())
+    }
+
+    pub fn request_page_zeroed(&mut self) -> Result<PhysFrame<Size4KiB>, ()> {
+        let page = self.request_page()?;
+
+        let ptr = relocate_frame(page).start_address().as_mut_ptr::<u8>();
+        unsafe {
+            core::ptr::write_bytes(ptr, 0, 4096);
+        }
+
+        Ok(page)
     }
 
     pub fn free_page(&mut self, frame: PhysFrame<Size4KiB>) {

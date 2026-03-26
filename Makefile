@@ -32,13 +32,13 @@ KERNEL_SRCS     := $(shell find src/kernel/src -name '*.rs') \
 
 APP_INIT_ELF     := $(CURDIR)/src/apps/target/x86_64-unknown-none/$(CARGO_DIR)/init
 
-APPS_SRCS       := $(shell find src/apps) \
+APPS_SRCS       := $(shell find src/apps/init) \
 				   src/apps/Cargo.toml    \
 				   src/apps/Cargo.lock
 
 -include src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.d
 -include src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel.d
--include src/kernel/target/x86_64-unknown-none/$(CARGO_DIR)/init.d
+-include src/apps/target/x86_64-unknown-none/$(CARGO_DIR)/init.d
 
 .PHONY: all bootloader kernel run clean help os.img os.iso os.vdi
 

@@ -4,25 +4,34 @@ use crate::memory::virtual_memory_allocator::{
     KERNEL_VIRTUAL_MEMORY_ALLOCATOR, VirtualMemoryAllocatorError,
 };
 use core::arch::asm;
+use core::ops::DerefMut;
 use spin::{Once, RwLock};
 use x86_64::structures::paging::{Page, Size4KiB};
 use x86_64::VirtAddr;
+use crate::PAGE_TABLE_MAPPER;
 
 const KERNEL_STACK_PAGES_COUNT: u64 = 40;
 
 pub static STACK_GUARD_PAGES: Once<RwLock<Vec<Page<Size4KiB>>>> = Once::new();
 
+pub fn stack_top_from_slice(stack_slice_pointer: *const [u8]) -> *const u8 {
+    let start_bottom = stack_slice_pointer as *const u8;
+    let stack_top = unsafe { start_bottom.add(stack_slice_pointer.len()) };
+    // Align to 16 bytes
+    let stack_top = ((stack_top as usize & !0xF) - 0x100) as *const u8;
+
+    stack_top
+}
+
 pub fn allocate_stack() -> Result<(VirtAddr, Page<Size4KiB>), VirtualMemoryAllocatorError> {
+    let mut page_table_mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
     let (allocated, guard_page) = KERNEL_VIRTUAL_MEMORY_ALLOCATOR
         .get()
         .unwrap()
         .lock()
-        .alloc_pages_with_protection_page(KERNEL_STACK_PAGES_COUNT + 1)?;
+        .alloc_pages_with_protection_page(KERNEL_STACK_PAGES_COUNT + 1, page_table_mapper.deref_mut())?;
 
-    let start_bottom = allocated as *const u8;
-    let stack_top = unsafe { start_bottom.add(allocated.len()) };
-    // Align to 16 bytes
-    let stack_top = ((stack_top as usize & !0xF) - 0x100) as *const u8;
+    let stack_top = stack_top_from_slice(allocated);
 
     let mut guard_pages = STACK_GUARD_PAGES.call_once(|| RwLock::new(Vec::new())).write();
     guard_pages.push(guard_page);

@@ -16,6 +16,7 @@ use x86_64::structures::paging::{
     FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
+use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
 use crate::memory::heap::ALLOCATOR;
 use crate::utils::human_bytes::human_bytes;
 
@@ -113,7 +114,7 @@ pub fn init_paging(
 
     // Switch to kernel paging table
     unsafe {
-        Cr3::write(page_table_addr, Cr3Flags::PAGE_LEVEL_CACHE_DISABLE);
+        write_cr3(page_table_addr);
     }
 
     let page_table_manager = unsafe {
@@ -174,19 +175,25 @@ pub fn unmap_lower_half(memory_map: &MemoryMap) {
 
 pub fn alloc_memory_range(
     page_range: PageRangeInclusive<Size4KiB>,
+    page_table_mapper: &mut impl Mapper<Size4KiB>,
+    flush: bool,
 ) -> Result<(), MapToError<Size4KiB>> {
     let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
-    let mut mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
 
     for page in page_range {
         let frame = frame_allocator
-            .allocate_frame()
-            .ok_or(MapToError::FrameAllocationFailed)?;
+            .request_page_zeroed()
+            .map_err(|_| MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         unsafe {
-            mapper
-                .map_to(page, frame, flags, frame_allocator.deref_mut())?
-                .flush()
+            let mapper_flush = page_table_mapper
+                .map_to(page, frame, flags, frame_allocator.deref_mut())?;
+
+            if flush {
+                mapper_flush.flush();
+            } else {
+                mapper_flush.ignore();
+            }
         };
     }
 
@@ -211,4 +218,30 @@ pub fn map_mmio_single_page(phys_addr: PhysAddr) -> Result<(), MapToError<Size4K
     }
 
     Ok(())
+}
+
+pub unsafe fn write_cr3(page_table_addr: PhysFrame) {
+    unsafe {
+        Cr3::write(page_table_addr, Cr3Flags::PAGE_LEVEL_CACHE_DISABLE);
+    }
+}
+
+pub fn new_page_table(frame_allocator: &mut BooleanArrayFrameAllocator) -> (PhysFrame, OffsetPageTable<'static>) {
+    let page_table_frame = frame_allocator.request_page_zeroed().unwrap();
+    let page_table_addr = page_table_frame.start_address().as_u64();
+    let page_table = page_table_addr as *mut PageTable;
+    let mut page_table_manager =
+        unsafe { OffsetPageTable::new(&mut *relocate_raw_pointer_mut(page_table), VIRTUAL_TO_PHYSICAL_OFFSET) };
+
+    (page_table_frame, page_table_manager)
+}
+
+pub fn copy_kernel_mapping(target: &mut PageTable, from: &PageTable) {
+    for i in 256..512 {
+        target[i] = from[i].clone();
+    }
+}
+
+pub unsafe fn page_table_mapper_from_table_pointer(page_table_pointer: *mut PageTable) -> OffsetPageTable<'static> {
+    unsafe { OffsetPageTable::new(&mut *page_table_pointer, VIRTUAL_TO_PHYSICAL_OFFSET) }
 }

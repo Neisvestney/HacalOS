@@ -14,18 +14,20 @@ pub struct VirtualMemoryAllocator {
     region_start: Page<Size4KiB>,
     region_pages_count: u64,
     pages_allocated: u64,
+    flush: bool,
 }
 
 impl VirtualMemoryAllocator {
-    pub fn new(region_start: Page<Size4KiB>, region_pages_count: u64) -> Self {
+    pub fn new(region_start: Page<Size4KiB>, region_pages_count: u64, flush: bool) -> Self {
         VirtualMemoryAllocator {
             region_start,
             region_pages_count,
             pages_allocated: 0,
+            flush,
         }
     }
 
-    pub fn alloc_pages(&mut self, count: u64) -> Result<*const [u8], VirtualMemoryAllocatorError> {
+    pub fn alloc_pages(&mut self, count: u64, page_table_mapper: &mut impl Mapper<Size4KiB>) -> Result<*const [u8], VirtualMemoryAllocatorError> {
         if count > self.region_pages_count - self.pages_allocated {
             return Err(VirtualMemoryAllocatorError::OutOfMemory)
         }
@@ -38,12 +40,12 @@ impl VirtualMemoryAllocator {
 
         self.pages_allocated += count;
 
-        alloc_memory_range(page_range).map_err(VirtualMemoryAllocatorError::MapToError)?;
+        alloc_memory_range(page_range, page_table_mapper, self.flush).map_err(VirtualMemoryAllocatorError::MapToError)?;
 
         Ok(slice_from_raw_parts_mut(page_range.start.start_address().as_mut_ptr(), page_range.size() as usize))
     }
 
-    pub fn alloc_pages_with_protection_page(&mut self, count: u64) -> Result<(*const [u8], Page<Size4KiB>), VirtualMemoryAllocatorError> {
+    pub fn alloc_pages_with_protection_page(&mut self, count: u64, page_table_mapper: &mut impl Mapper<Size4KiB>) -> Result<(*const [u8], Page<Size4KiB>), VirtualMemoryAllocatorError> {
         if count + 1 > self.region_pages_count - self.pages_allocated {
             return Err(VirtualMemoryAllocatorError::OutOfMemory)
         }
@@ -57,13 +59,19 @@ impl VirtualMemoryAllocator {
 
         self.pages_allocated += count + 1;
 
-        match PAGE_TABLE_MAPPER.get().unwrap().lock().unmap(protection_page) {
-            Ok(_) => {}
+        match page_table_mapper.unmap(protection_page) {
+            Ok((_, mapper_flush)) => {
+                if self.flush {
+                    mapper_flush.flush();
+                } else {
+                    mapper_flush.ignore();
+                }
+            }
             Err(UnmapError::PageNotMapped) => {}
             Err(e) => return Err(VirtualMemoryAllocatorError::UnmapError(e))
         };
 
-        alloc_memory_range(page_range).map_err(VirtualMemoryAllocatorError::MapToError)?;
+        alloc_memory_range(page_range, page_table_mapper, self.flush).map_err(VirtualMemoryAllocatorError::MapToError)?;
 
         Ok((slice_from_raw_parts_mut(page_range.start.start_address().as_mut_ptr(), page_range.size() as usize), protection_page))
     }
@@ -77,5 +85,5 @@ pub enum VirtualMemoryAllocatorError {
 }
 
 pub fn init_kernel_virtual_memory_allocator() {
-    KERNEL_VIRTUAL_MEMORY_ALLOCATOR.call_once(|| Mutex::new(VirtualMemoryAllocator::new(VIRTUAL_MEMORY_REGION_START, VIRTUAL_MEMORY_REGION_PAGES_COUNT)));
+    KERNEL_VIRTUAL_MEMORY_ALLOCATOR.call_once(|| Mutex::new(VirtualMemoryAllocator::new(VIRTUAL_MEMORY_REGION_START, VIRTUAL_MEMORY_REGION_PAGES_COUNT, true)));
 }

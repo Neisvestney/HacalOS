@@ -6,12 +6,12 @@ use core::panic::PanicInfo;
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
-pub extern "sysv64" fn _start() -> usize {
-    unsafe {
-        asm!("int $0x80", options(nomem, nostack));
+pub extern "sysv64" fn _start() -> ! {
+    loop {
+        unsafe {
+            asm!("int $0x80", options(nomem, nostack));
+        }
     }
-
-    0
 }
 
 

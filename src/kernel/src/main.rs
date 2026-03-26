@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+use alloc::string::ToString;
 use crate::acpi::acpi_handler::AcpiHandlerImpl;
 use crate::acpi::{get_acpi_tables, get_apic_info};
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
@@ -26,6 +27,8 @@ use ::acpi::{AcpiTables, InterruptModel};
 use alloc::vec;
 use bootloader_structs::BootInfo;
 use core::arch::asm;
+use core::cell::UnsafeCell;
+use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::panic::PanicInfo;
 use goblin::elf::Elf;
@@ -41,6 +44,9 @@ use inithfs::InitHFsRoot;
 use crate::hpet::{init_hpet, HPET};
 use crate::memory::stack::{allocate_stack, switch_stack_and_jump};
 use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocator;
+use crate::percpu::start_scheduling_on_next_tick;
+use crate::process::loader::load_program_to_memory;
+use crate::scheduler::global_scheduler::{global_scheduler, init_scheduler, GlobalScheduler, GlobalSchedulerWrapper};
 use crate::uefi_runtime_services::relocate_uefi_runtime_services;
 use crate::utils::human_bytes::human_bytes;
 use crate::utils::relocate::relocate_raw_pointer;
@@ -57,16 +63,26 @@ mod serial;
 mod utils;
 mod hpet;
 mod uefi_runtime_services;
+mod scheduler;
+mod process;
 
 // static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();
 static PAGE_TABLE_MAPPER: Once<Mutex<OffsetPageTable>> = Once::new();
 static FRAME_ALLOCATOR: Once<Mutex<BooleanArrayFrameAllocator>> = Once::new();
+static GLOBAL_SCHEDULER: GlobalSchedulerWrapper = GlobalSchedulerWrapper(UnsafeCell::new(MaybeUninit::uninit()));
 
 const VIRTUAL_TO_PHYSICAL_OFFSET: VirtAddr = unsafe { VirtAddr::new_unsafe(0xFFFF900000000000) };
 
 const VIRTUAL_MEMORY_REGION_START: Page<Size4KiB> = unsafe { Page::from_start_address_unchecked(VirtAddr::new_unsafe(0xFFFF820000000000)) };
-const VIRTUAL_MEMORY_REGION_PAGES_COUNT: u64 = 1024;
+const VIRTUAL_MEMORY_REGION_PAGES_COUNT: u64 = 0x0E000000000;
+
+
+const USER_PROCESS_VIRTUAL_MEMORY_REGION_START: Page<Size4KiB> = unsafe { Page::from_start_address_unchecked(VirtAddr::new_unsafe(0x600000000000)) };
+
+const USER_PROCESS_VIRTUAL_MEMORY_REGION_PAGES_COUNT: u64 = 0x100000000;
+
+const USER_PROCESS_STACK_PAGES_COUNT: u64 = 40;
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
@@ -105,7 +121,7 @@ fn init(boot_info: BootInfo) {
     init_kernel_virtual_memory_allocator();
     init_kernel_heap().unwrap();
     let (bsp_kernel_stack_top, _bsp_kernel_stack_protection_page) = allocate_stack().expect("Cannot allocate memory for stack");
-    let (gdt, tss) = init_gdt();
+    let (gdt, tss) = init_gdt(bsp_kernel_stack_top);
     init_idt();
     disable_pics();
 
@@ -121,6 +137,7 @@ fn init(boot_info: BootInfo) {
     init_per_cpu(local_apic, gdt, tss);
     init_ioapic_interrupts(&apic_info, bsp_lapic_id as u8);
     init_hpet(&acpi_tables);
+    init_scheduler();
 
     let runtime_system_table = boot_info.runtime_system_table.unwrap();
     info!("Jumping to new stack");
@@ -229,12 +246,13 @@ fn main(runtime_system_table: SystemTable<Runtime>, acpi_tables: AcpiTables<Acpi
     let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
     let file_init_app_bytes = inithfs.get_file_contents("init").unwrap();
     info!("File size: {}, {:p}", file_init_app_bytes.len(), file_init_app_bytes);
-    let file_init_app = Elf::parse(file_init_app_bytes).expect("Failed to parse Elf");
-    info!("Headers: {:?}", file_init_app.header);
-    info!("Program headers: ");
-    for ph in &file_init_app.program_headers {
-        info!("{:?}", ph);
-    }
+    let mut process = load_program_to_memory(0, "init".to_string(), file_init_app_bytes).expect("Failed to load init app");
+    let thread_context = process.add_main_thread().expect("Failed to add main thread of init app");
+    info!("Process {:?}", process);
+    info!("Main thread context {:?}", thread_context);
+    global_scheduler().schedule_thread(thread_context);
+
+    start_scheduling_on_next_tick();
 
     loop {
         hlt();
