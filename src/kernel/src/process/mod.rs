@@ -10,11 +10,12 @@ use crate::{
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Debug, Formatter};
-use x86_64::structures::paging::{PageTable, PhysFrame};
 use x86_64::VirtAddr;
+use x86_64::structures::paging::{PageTable, PhysFrame};
 
 pub mod loader;
 pub mod memory_map;
+pub mod processes_manager;
 pub mod thread;
 
 pub type ProcessId = u64;
@@ -44,7 +45,7 @@ impl Process {
             page_table_phys_frame,
             entry_point,
             threads: Vec::with_capacity(1),
-            next_thread_id: 0,
+            next_thread_id: 1,
             virtual_memory_allocator: VirtualMemoryAllocator::new(
                 USER_PROCESS_VIRTUAL_MEMORY_REGION_START,
                 USER_PROCESS_VIRTUAL_MEMORY_REGION_PAGES_COUNT,

@@ -22,6 +22,7 @@ use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocato
 use crate::percpu::init::init_per_cpu;
 use crate::percpu::start_scheduling_on_next_tick;
 use crate::process::loader::load_program_to_memory;
+use crate::process::processes_manager::{PROCESSES_MANAGER, init_processes_manager};
 use crate::render::color::Color;
 use crate::render::console_renderer::ConsoleRenderer;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
@@ -143,6 +144,7 @@ fn init(boot_info: BootInfo) {
     init_ioapic_interrupts(&apic_info, bsp_lapic_id as u8);
     init_hpet(&acpi_tables);
     init_scheduler();
+    init_processes_manager();
 
     let runtime_system_table = boot_info.runtime_system_table.unwrap();
     info!("Jumping to new stack");
@@ -258,24 +260,29 @@ fn main(
     // }
     // info!("Hello after interrupt");
 
-    info!("Loading init app from inithfs");
+    info!("Loading `init` program from inithfs");
     let inithfs_bytes = unsafe { &*relocate_raw_pointer(inithfs_bytes) };
     let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
-    let file_init_app_bytes = inithfs.get_file_contents("init").unwrap();
+    let file_init_program_bytes = inithfs.get_file_contents("init").unwrap();
     info!(
         "File size: {}, {:p}",
-        file_init_app_bytes.len(),
-        file_init_app_bytes
+        file_init_program_bytes.len(),
+        file_init_program_bytes
     );
-    let mut process = load_program_to_memory(0, "init".to_string(), file_init_app_bytes)
-        .expect("Failed to load init app");
+    let mut process = load_program_to_memory(1, "init".to_string(), file_init_program_bytes)
+        .expect("Failed to load `init` program");
     let thread_context = process
         .add_main_thread()
-        .expect("Failed to add main thread of init app");
-    info!("Process {:?}", process);
-    info!("Main thread context {:?}", thread_context);
+        .expect("Failed to add main thread of `init` program");
+
+    PROCESSES_MANAGER
+        .get()
+        .unwrap()
+        .write()
+        .add_process(process);
     global_scheduler().schedule_thread(thread_context);
 
+    info!("`init` program ready, starting scheduler");
     start_scheduling_on_next_tick();
 
     loop {

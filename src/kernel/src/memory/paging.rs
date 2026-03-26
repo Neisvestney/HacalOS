@@ -1,8 +1,6 @@
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
-use crate::utils::relocate::{
-    relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut,
-};
+use crate::utils::relocate::{relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut};
 use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET};
 use alloc::vec::Vec;
 use bootloader_structs::{GopInfo, KernelMapEntry};
@@ -157,7 +155,7 @@ pub fn unmap_lower_half(memory_map: &MemoryMap) {
                     .unwrap()
                     + i;
 
-            let result =mapper.unmap(virtual_frame);
+            let result = mapper.unmap(virtual_frame);
 
             match result {
                 Ok((_, flush)) => flush.flush(),

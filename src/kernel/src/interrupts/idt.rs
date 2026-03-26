@@ -6,8 +6,7 @@ use lazy_static::lazy_static;
 use log::{error, info, warn};
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{
-    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
-    SelectorErrorCode,
+    InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode, SelectorErrorCode,
 };
 use x86_64::structures::paging::Page;
 use x86_64::{PrivilegeLevel, VirtAddr};
@@ -36,7 +35,8 @@ lazy_static! {
             .set_handler_fn(syscall_api_call_handler)
             .set_privilege_level(PrivilegeLevel::Ring3);
 
-        idt[LAPIC_TIMER_VECTOR].set_handler_addr(VirtAddr::new(lapic_timer_entry as *const () as u64));
+        idt[LAPIC_TIMER_VECTOR]
+            .set_handler_addr(VirtAddr::new(lapic_timer_entry as *const () as u64));
         idt[LAPIC_KEYBOARD_VECTOR].set_handler_fn(lapic_keyboard_handler);
         idt[LAPIC_ERROR_VECTOR].set_handler_fn(lapic_error_handler);
         idt[LAPIC_SPURIOUS_VECTOR].set_handler_fn(lapic_spurious_handler);

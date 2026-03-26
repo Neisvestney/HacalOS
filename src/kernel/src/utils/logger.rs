@@ -19,7 +19,7 @@ impl log::Log for SimpleLogger {
                 console.set_foreground_color(Color::GRAY);
                 console.write_char('[');
                 console.set_foreground_color(get_level_color(record.level()));
-                let _ =console.write_fmt(format_args!("{}", record.level()));
+                let _ = console.write_fmt(format_args!("{}", record.level()));
                 console.set_foreground_color(Color::GRAY);
                 console.write_string("] ");
                 console.set_foreground_color(Color::WHITE);
