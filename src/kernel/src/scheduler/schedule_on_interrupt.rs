@@ -47,15 +47,17 @@ pub unsafe fn timer_schedule_next(
             .current_thread_ticks_left
             .store(SCHEDULE_TICKS, Ordering::Relaxed);
 
-        let cpu_registries_context = next_thread_context.cpu_registries_context;
+        // Switching to next thread
         unsafe {
             write_cr3(next_thread_context.page_table_phys_frame);
         }
 
+        let cpu_registries_context = next_thread_context.cpu_registries_context;
+
         *stored_thread_context_guard = Some(next_thread_context);
         x86_64::instructions::interrupts::disable();
         drop(stored_thread_context_guard);
-        info!("ts");
+        // info!("ts");
         unsafe {
             asm!("swapgs");
             iret_with_context(&cpu_registries_context)
@@ -102,7 +104,7 @@ pub fn syscall_schedule_check(percpu: &PerCpu, ctx: &mut SyscallContext) {
                 *stored_thread_context_guard = Some(next_thread_context);
                 x86_64::instructions::interrupts::disable();
                 drop(stored_thread_context_guard);
-                info!("sts");
+                // info!("sts");
                 unsafe {
                     asm!("swapgs");
                     iret_with_context(&cpu_registries_context);

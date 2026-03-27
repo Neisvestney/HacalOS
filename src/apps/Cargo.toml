@@ -1,3 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["init"]
+members = ["init", "std_lib", "test_bin"]
+
+[workspace.dependencies]
+std_lib = { path = "./std_lib" }

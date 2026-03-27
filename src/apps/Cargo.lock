@@ -5,3 +5,17 @@ version = 4
 [[package]]
 name = "init"
 version = "0.1.0"
+dependencies = [
+ "std_lib",
+]
+
+[[package]]
+name = "std_lib"
+version = "0.1.0"
+
+[[package]]
+name = "test_bin"
+version = "0.1.0"
+dependencies = [
+ "std_lib",
+]

@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+use alloc::format;
 use crate::acpi::acpi_handler::AcpiHandlerImpl;
 use crate::acpi::{get_acpi_tables, get_apic_info};
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
@@ -266,26 +267,32 @@ fn main(
     info!("Loading `init` program from inithfs");
     let inithfs_bytes = unsafe { &*relocate_raw_pointer(inithfs_bytes) };
     let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
-    let file_init_program_bytes = inithfs.get_file_contents("init").unwrap();
-    info!(
+
+    let load = |path: &str| {
+        let file_init_program_bytes = inithfs.get_file_contents(path).unwrap();
+        info!(
         "File size: {}, {:p}",
         file_init_program_bytes.len(),
         file_init_program_bytes
     );
-    let mut process = load_program_to_memory(1, "init".to_string(), file_init_program_bytes)
-        .expect("Failed to load `init` program");
-    let thread_context = process
-        .add_main_thread()
-        .expect("Failed to add main thread of `init` program");
+        let mut process = load_program_to_memory(1, path.to_string(), file_init_program_bytes)
+            .unwrap_or_else(|_| panic!("Failed to load program `{}`", path));
+        let thread_context = process
+            .add_main_thread()
+            .unwrap_or_else(|_| panic!("Failed to add main thread for `{}`", path));
 
-    PROCESSES_MANAGER
-        .get()
-        .unwrap()
-        .write()
-        .add_process(process);
-    global_scheduler().schedule_thread(thread_context);
+        PROCESSES_MANAGER
+            .get()
+            .unwrap()
+            .write()
+            .add_process(process);
+        global_scheduler().schedule_thread(thread_context);
+        info!("`{}` program ready", path);
+    };
+    load("init");
+    load("test_bin");
 
-    info!("`init` program ready, starting scheduler");
+    info!("Starting scheduler");
     start_scheduling()
 }
 

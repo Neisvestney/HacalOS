@@ -31,14 +31,18 @@ KERNEL_SRCS     := $(shell find src/kernel/src -name '*.rs') \
                    src/kernel/Cargo.lock
 
 APP_INIT_ELF     := $(CURDIR)/src/apps/target/x86_64-unknown-none/$(CARGO_DIR)/init
+APP_TEST_BIN_ELF     := $(CURDIR)/src/apps/target/x86_64-unknown-none/$(CARGO_DIR)/test_bin
 
 APPS_SRCS       := $(shell find src/apps/init) \
+				   $(shell find src/apps/test_bin) \
 				   src/apps/Cargo.toml    \
 				   src/apps/Cargo.lock
 
 -include src/bootloader/target/x86_64-unknown-uefi/$(CARGO_DIR)/bootloader.d
 -include src/kernel/target/x86_64-hacal_os/$(CARGO_DIR)/kernel.d
+
 -include src/apps/target/x86_64-unknown-none/$(CARGO_DIR)/init.d
+-include src/apps/target/x86_64-unknown-none/$(CARGO_DIR)/test_bin.d
 
 .PHONY: all bootloader kernel run clean help os.img os.iso os.vdi
 
@@ -52,7 +56,7 @@ $(BOOTLOADER_EFI): $(BOOTLOADER_SRCS)
 $(KERNEL_ELF): $(KERNEL_SRCS)
 	cd src/kernel && cargo build $(CARGO_FLAGS)
 
-$(APP_INIT_ELF): $(APPS_SRCS)
+$(APP_INIT_ELF) $(APP_TEST_BIN_ELF): $(APPS_SRCS)
 	cd src/apps && cargo build $(CARGO_FLAGS)
 
 bootloader: $(BOOTLOADER_EFI)
@@ -75,9 +79,10 @@ $(OUT)/os.img: $(OUT)/part.img | $(OUT)
 	dd if=$(OUT)/part.img of=$@ bs=1M conv=notrunc seek=1
 
 
-$(OUT)/inithfs: $(APP_INIT_ELF)
+$(OUT)/inithfs: $(APP_INIT_ELF) $(APP_TEST_BIN_ELF)
 	mkdir -p $(OUT)/inithfs-root
 	cp $(APP_INIT_ELF) $(OUT)/inithfs-root
+	cp $(APP_TEST_BIN_ELF) $(OUT)/inithfs-root
 	cd src/create-inithfs && cargo run --bin create-inithfs -- ../../$(OUT)/inithfs-root ../../$(OUT)/inithfs
 
 ## --- Image formats ---

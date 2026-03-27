@@ -10,9 +10,9 @@ use std_lib::{syscall};
 pub extern "sysv64" fn _start() -> ! {
     loop {
         unsafe {
-            syscall!(42);
+            syscall!(256);
 
-            for i in 0..0x100000 {
+            for i in 0..0x200000 {
                 unsafe {
                     asm!("pause");
                 }

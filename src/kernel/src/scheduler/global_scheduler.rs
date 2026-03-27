@@ -26,7 +26,7 @@ impl GlobalScheduler {
         thread: Box<ThreadContext>,
     ) -> Option<Box<ThreadContext>> {
         let mut threads_queue = self.threads_queue.write();
-        threads_queue.push_front(thread);
+        threads_queue.push_back(thread);
         self.get_next_in(&mut threads_queue)
     }
 

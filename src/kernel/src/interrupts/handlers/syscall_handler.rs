@@ -100,7 +100,7 @@ pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     //     hint::spin_loop();
     // }
 
-    //info!("syscall_number: {}", syscall_number);
+    info!("syscall_number: {}", syscall_number);
     syscall_schedule_check(percpu, ctx);
 
     x86_64::instructions::interrupts::disable();
