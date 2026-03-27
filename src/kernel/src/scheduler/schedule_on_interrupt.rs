@@ -73,54 +73,50 @@ pub unsafe fn timer_schedule_next(
 }
 
 
-pub fn syscall_schedule_check(percpu: &PerCpu, ctx: &mut SyscallContext) {
+pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option<Box<ThreadContext>>>, percpu: &PerCpu, ctx: &mut SyscallContext) {
     let ticks_left = percpu.current_thread_ticks_left.load(Ordering::Acquire);
     if ticks_left <= 1 {
-        let stored_thread_context = percpu.current_thread_context.try_lock();
+        let global_scheduler = global_scheduler();
 
-        if let Some(mut stored_thread_context_guard) = stored_thread_context {
-            let global_scheduler = global_scheduler();
-
-            let next_thread_context =
-                if let Some(mut previous_thread_context) = stored_thread_context_guard.take() {
-                    previous_thread_context.cpu_registries_context = CpuRegistriesContext::from_syscall_context(ctx, percpu.user_rsp);
-                    global_scheduler.push_thread_back_and_get_next(previous_thread_context)
-                } else {
-                    global_scheduler.get_next()
-                };
-
-            if let Some(next_thread_context) = next_thread_context {
-                percpu
-                    .current_thread_ticks_left
-                    .store(SCHEDULE_TICKS, Ordering::Relaxed);
-
-                // Switching to next thread
-                unsafe {
-                    write_cr3(next_thread_context.page_table_phys_frame);
-                }
-
-                let cpu_registries_context = next_thread_context.cpu_registries_context;
-
-                *stored_thread_context_guard = Some(next_thread_context);
-                x86_64::instructions::interrupts::disable();
-                drop(stored_thread_context_guard);
-                // info!("sts");
-                unsafe {
-                    asm!("swapgs");
-                    iret_with_context(&cpu_registries_context);
-                }
+        let next_thread_context =
+            if let Some(mut previous_thread_context) = stored_thread_context_guard.take() {
+                previous_thread_context.cpu_registries_context = CpuRegistriesContext::from_syscall_context(ctx, percpu.user_rsp);
+                global_scheduler.push_thread_back_and_get_next(previous_thread_context)
             } else {
-                *stored_thread_context_guard = None;
+                global_scheduler.get_next()
+            };
 
-                x86_64::instructions::interrupts::disable();
-                drop(stored_thread_context_guard);
-                percpu.scheduling_disabled.store(false, Ordering::Release);
-                x86_64::instructions::interrupts::enable();
+        if let Some(next_thread_context) = next_thread_context {
+            percpu
+                .current_thread_ticks_left
+                .store(SCHEDULE_TICKS, Ordering::Relaxed);
 
-                loop {
-                    // No more things to do
-                    hlt();
-                }
+            // Switching to next thread
+            unsafe {
+                write_cr3(next_thread_context.page_table_phys_frame);
+            }
+
+            let cpu_registries_context = next_thread_context.cpu_registries_context;
+
+            *stored_thread_context_guard = Some(next_thread_context);
+            x86_64::instructions::interrupts::disable();
+            drop(stored_thread_context_guard);
+            // info!("sts");
+            unsafe {
+                asm!("swapgs");
+                iret_with_context(&cpu_registries_context);
+            }
+        } else {
+            *stored_thread_context_guard = None;
+
+            x86_64::instructions::interrupts::disable();
+            drop(stored_thread_context_guard);
+            percpu.scheduling_disabled.store(false, Ordering::Release);
+            x86_64::instructions::interrupts::enable();
+
+            loop {
+                // No more things to do
+                hlt();
             }
         }
     }

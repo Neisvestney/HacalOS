@@ -90,8 +90,7 @@ pub struct SyscallContext {
 
 pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     let percpu = unsafe { percpu::current() };
-
-    percpu.scheduling_disabled.store(true, Ordering::Release);
+    let stored_thread_context = percpu.current_thread_context.lock();
     x86_64::instructions::interrupts::enable();
 
     let syscall_number = ctx.rax;
@@ -101,8 +100,5 @@ pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     // }
 
     info!("syscall_number: {}", syscall_number);
-    syscall_schedule_check(percpu, ctx);
-
-    x86_64::instructions::interrupts::disable();
-    percpu.scheduling_disabled.store(false, Ordering::Release);
+    syscall_schedule_check(stored_thread_context, percpu, ctx);
 }

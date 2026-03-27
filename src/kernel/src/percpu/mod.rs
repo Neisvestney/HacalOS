@@ -26,6 +26,7 @@ pub struct PerCpu {
 
     pub scheduling_disabled: AtomicBool,
     pub current_thread_ticks_left: AtomicU64,
+    // Kernel allowed to use heap and mutable shared resources only while holding current_thread_context mutex guard
     pub current_thread_context: Mutex<Option<Box<ThreadContext>>>,
 }
 
