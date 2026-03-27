@@ -1,6 +1,7 @@
 use crate::interrupts::handlers::lapic_timer_handler::lapic_timer_entry;
 use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
 use crate::memory::stack::STACK_GUARD_PAGES;
+use crate::utils::with_swaped_gs::with_swaped_gs;
 use crate::{gdt, percpu, print};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -44,33 +45,38 @@ pub fn init_idt() {
     IDT.load();
 }
 
-extern "x86-interrupt" fn lapic_keyboard_handler(_stack_frame: InterruptStackFrame) {
-    use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
-    use spin::Mutex;
-    use x86_64::instructions::port::Port;
+extern "x86-interrupt" fn lapic_keyboard_handler(stack_frame: InterruptStackFrame) {
+    with_swaped_gs(
+        || {
+            use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
+            use spin::Mutex;
+            use x86_64::instructions::port::Port;
 
-    lazy_static! {
-        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = {
-            let s = ScancodeSet1::new();
-            Mutex::new(Keyboard::new(s, layouts::Us104Key, HandleControl::Ignore))
-        };
-    }
-
-    let mut keyboard = KEYBOARD.lock();
-    let mut port = Port::new(0x60);
-
-    let scancode: u8 = unsafe { port.read() };
-    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-        if let Some(key) = keyboard.process_keyevent(key_event) {
-            match key {
-                DecodedKey::Unicode(character) => print!("{}", character),
-                // DecodedKey::RawKey(key) => print!("{:?}", key),
-                _ => {}
+            lazy_static! {
+                static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = {
+                    let s = ScancodeSet1::new();
+                    Mutex::new(Keyboard::new(s, layouts::Us104Key, HandleControl::Ignore))
+                };
             }
-        }
-    }
 
-    unsafe { percpu::lapic().end_of_interrupt() }
+            let mut keyboard = KEYBOARD.lock();
+            let mut port = Port::new(0x60);
+
+            let scancode: u8 = unsafe { port.read() };
+            if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+                if let Some(key) = keyboard.process_keyevent(key_event) {
+                    match key {
+                        DecodedKey::Unicode(character) => print!("{}", character),
+                        // DecodedKey::RawKey(key) => print!("{:?}", key),
+                        _ => {}
+                    }
+                }
+            }
+
+            unsafe { percpu::lapic().end_of_interrupt() }
+        },
+        stack_frame.code_segment,
+    )
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -125,17 +131,22 @@ extern "x86-interrupt" fn double_fault_handler(
     );
 }
 
-extern "x86-interrupt" fn lapic_spurious_handler(_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn lapic_spurious_handler(_stack_frame: InterruptStackFrame) {
     warn!("Spurious interrupt");
 }
 
-extern "x86-interrupt" fn lapic_error_handler(_frame: InterruptStackFrame) {
-    let lapic_base = unsafe { x2apic::lapic::xapic_base() };
-    let esr = unsafe {
-        let ptr = (lapic_base + 0x280) as *mut u32;
-        ptr.write_volatile(0); // сброс: сначала пишем
-        ptr.read_volatile() // потом читаем
-    };
-    error!("LAPIC ERROR: ESR = {:#010b}", esr);
-    unsafe { percpu::lapic().end_of_interrupt() }
+extern "x86-interrupt" fn lapic_error_handler(stack_frame: InterruptStackFrame) {
+    with_swaped_gs(
+        || {
+            let lapic_base = unsafe { x2apic::lapic::xapic_base() };
+            let esr = unsafe {
+                let ptr = (lapic_base + 0x280) as *mut u32;
+                ptr.write_volatile(0); // сброс: сначала пишем
+                ptr.read_volatile() // потом читаем
+            };
+            error!("LAPIC ERROR: ESR = {:#010b}", esr);
+            unsafe { percpu::lapic().end_of_interrupt() }
+        },
+        stack_frame.code_segment,
+    );
 }

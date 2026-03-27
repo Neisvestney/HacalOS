@@ -2,6 +2,8 @@ use x86_64::VirtAddr;
 use x86_64::registers::rflags::RFlags;
 use x86_64::structures::gdt::SegmentSelector;
 use x86_64::structures::idt::InterruptStackFrameValue;
+use crate::gdt::segment_selectors;
+use crate::interrupts::handlers::syscall_handler::SyscallContext;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -51,6 +53,37 @@ impl CpuRegistriesContext {
                 VirtAddr::new(0),
                 SegmentSelector::NULL,
             ),
+        }
+    }
+
+    pub fn from_syscall_context(syscall_context: &SyscallContext, stack_pointer: VirtAddr) -> Self {
+        let segment_selectors = segment_selectors();
+
+        unsafe {
+            CpuRegistriesContext {
+                r15: syscall_context.r15,
+                r14: syscall_context.r14,
+                r13: syscall_context.r13,
+                r12: syscall_context.r12,
+                r11: syscall_context.r11_rflags,
+                r10: syscall_context.r10,
+                r9: syscall_context.r9,
+                r8: syscall_context.r8,
+                rsi: syscall_context.rsi,
+                rdi: syscall_context.rdi,
+                rbp: syscall_context.rbp,
+                rdx: syscall_context.rdx,
+                rcx: syscall_context.rcx_rip,
+                rbx: syscall_context.rbx,
+                rax: syscall_context.rax,
+                stack_frame: InterruptStackFrameValue::new(
+                    VirtAddr::new_unsafe(syscall_context.rcx_rip),
+                    segment_selectors.user_code_selector,
+                    RFlags::from_bits_truncate(syscall_context.r11_rflags),
+                    stack_pointer,
+                    segment_selectors.user_data_selector,
+                ),
+            }
         }
     }
 }

@@ -1,16 +1,23 @@
 use crate::gdt::segment_selectors;
+use crate::interrupts::iret_wit_context::iret_with_context;
 use crate::memory::paging::write_cr3;
 use crate::percpu;
 use crate::percpu::PerCpu;
 use crate::scheduler::SCHEDULE_TICKS;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 use crate::scheduler::global_scheduler::global_scheduler;
+use crate::scheduler::schedule_on_interrupt::{timer_schedule_next, timer_schedule_tick};
+use crate::scheduler::thread_context::ThreadContext;
+use alloc::boxed::Box;
 use core::arch::{asm, naked_asm};
 use core::hint;
+use core::ops::DerefMut;
 use core::sync::atomic::Ordering;
+use log::info;
+use spin::MutexGuard;
 use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
-use crate::interrupts::iret_wit_context::iret_with_context;
+use crate::utils::with_swaped_gs::with_swaped_gs;
 
 #[unsafe(naked)]
 pub extern "C" fn lapic_timer_entry() -> ! {
@@ -40,98 +47,40 @@ pub extern "C" fn lapic_timer_entry() -> ! {
 }
 
 pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
-    let gs_spaped = if ctx.stack_frame.code_segment != segment_selectors().code_selector {
-        asm!("swapgs");
-        true
-    } else {
-        false
-    };
+    let code_segment = ctx.stack_frame.code_segment;
+    with_swaped_gs(|| {
+        let percpu = unsafe { percpu::current() };
 
-    let percpu = unsafe { percpu::current() };
+        let ticks_left = timer_schedule_tick(percpu);
 
-    let ticks_left = timer_schedule_tick(percpu);
+        let scheduling_disabled = percpu.scheduling_disabled.load(Ordering::Acquire);
 
-    if ctx.stack_frame.code_segment == segment_selectors().code_selector {
-        // Interrupted in kernel
-        if percpu
-            .start_scheduling_on_next_tick
-            .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
-        {
-            unsafe {
-                timer_schedule_check(ticks_left, percpu, ctx);
-                asm!("swapgs");
+        if !scheduling_disabled && ticks_left <= 1 {
+            let stored_thread_context = percpu.current_thread_context.try_lock();
+
+            if let Some(stored_thread_context_guard) = stored_thread_context {
+                // Enabling interrupts only after current_thread_context was taken
+                unsafe {
+                    percpu::lapic().end_of_interrupt();
+                }
+                x86_64::instructions::interrupts::enable();
+
+                unsafe {
+                    timer_schedule_next(stored_thread_context_guard, percpu, ctx);
+                }
+            } else {
+                unsafe {
+                    percpu::lapic().end_of_interrupt();
+                }
             }
         } else {
-            unsafe { percpu::lapic().end_of_interrupt() }
+            unsafe {
+                percpu::lapic().end_of_interrupt();
+            }
         }
-    } else {
-        // Interrupted user program
-        unsafe {
-            timer_schedule_check(ticks_left, percpu, ctx);
-        }
-    }
+    }, code_segment);
 
     unsafe {
-        if gs_spaped {
-            asm!("swapgs");
-        }
-
         iret_with_context(ctx)
-    }
-}
-
-fn timer_schedule_tick(percpu: &PerCpu) -> u64 {
-    let prev_ticks_left = percpu
-        .current_thread_ticks_left
-        .fetch_sub(1, Ordering::Relaxed);
-
-    if prev_ticks_left <= 1 {
-        percpu.current_thread_ticks_left.store(1, Ordering::Release);
-        return 1;
-    }
-
-    prev_ticks_left
-}
-
-unsafe fn timer_schedule_check(ticks_left: u64, percpu: &PerCpu, ctx: &mut CpuRegistriesContext) {
-    let global_scheduler = global_scheduler();
-
-    unsafe { percpu::lapic().end_of_interrupt() }
-    x86_64::instructions::interrupts::enable();
-
-    if ticks_left <= 1 {
-        let stored_thread_context = unsafe { &mut *percpu.current_thread_context.get() };
-        let next_thread_context =
-            if let Some(mut previous_thread_context) = stored_thread_context.take() {
-                previous_thread_context.cpu_registries_context = *ctx;
-                global_scheduler.push_thread_back_and_get_next(previous_thread_context)
-            } else {
-                global_scheduler.get_next()
-            };
-
-        if let Some(next_thread_context) = next_thread_context {
-            percpu
-                .current_thread_ticks_left
-                .store(SCHEDULE_TICKS, Ordering::Relaxed);
-
-            let ctx_volatile = unsafe { VolatilePtr::new(ctx.into()) };
-            ctx_volatile.write(next_thread_context.cpu_registries_context); // Switching to next thread
-            unsafe {
-                write_cr3(next_thread_context.page_table_phys_frame);
-            }
-
-            *stored_thread_context = Some(next_thread_context);
-        } else {
-            percpu
-                .start_scheduling_on_next_tick
-                .store(true, Ordering::Release);
-
-            *stored_thread_context = None;
-            loop {
-                // No more thinks to do
-                hlt();
-            }
-        }
     }
 }

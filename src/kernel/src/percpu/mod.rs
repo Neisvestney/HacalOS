@@ -7,6 +7,7 @@ use core::arch::asm;
 use core::cell::UnsafeCell;
 use core::mem::offset_of;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use spin::Mutex;
 use x2apic::lapic::LocalApic;
 use x86_64::VirtAddr;
 use x86_64::instructions::hlt;
@@ -23,9 +24,9 @@ pub struct PerCpu {
     pub kernel_stack_top: VirtAddr,
     pub user_rsp: VirtAddr,
 
-    pub start_scheduling_on_next_tick: AtomicBool,
+    pub scheduling_disabled: AtomicBool,
     pub current_thread_ticks_left: AtomicU64,
-    pub current_thread_context: UnsafeCell<Option<Box<ThreadContext>>>,
+    pub current_thread_context: Mutex<Option<Box<ThreadContext>>>,
 }
 
 impl PerCpu {
@@ -45,11 +46,11 @@ pub unsafe fn lapic() -> &'static mut LocalApic {
     unsafe { &mut *(*gsbase::get()).local_apic.get() }
 }
 
-pub fn start_scheduling_on_next_tick() -> ! {
+pub fn start_scheduling() -> ! {
     unsafe {
         current()
-            .start_scheduling_on_next_tick
-            .store(true, Ordering::Relaxed);
+            .scheduling_disabled
+            .store(false, Ordering::Relaxed);
     }
 
     loop {

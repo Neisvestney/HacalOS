@@ -20,7 +20,7 @@ use crate::memory::paging::{init_paging, unmap_lower_half};
 use crate::memory::stack::{allocate_stack, switch_stack_and_jump};
 use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocator;
 use crate::percpu::init::init_per_cpu;
-use crate::percpu::start_scheduling_on_next_tick;
+use crate::percpu::start_scheduling;
 use crate::process::loader::load_program_to_memory;
 use crate::process::processes_manager::{PROCESSES_MANAGER, init_processes_manager};
 use crate::render::color::Color;
@@ -214,30 +214,30 @@ fn main(
         info!("AP: APIC ID = {}, state = {:?}", ap.local_apic_id, ap.state);
     }
 
-    match platform_info.interrupt_model {
-        InterruptModel::Apic(apic) => {
-            // Адрес Local APIC (общий для всех ядер)
-            let lapic_addr = apic.local_apic_address;
-            info!("Local APIC address: {:#x}", lapic_addr);
-
-            // Перечисляем все IO APIC
-            for io_apic in apic.io_apics.iter() {
-                info!(
-                    "IO APIC id={}, addr={:#x}, gsi_base={}",
-                    io_apic.id, io_apic.address, io_apic.global_system_interrupt_base,
-                );
-            }
-
-            // Interrupt Source Overrides (например, IRQ0 → GSI2 для таймера)
-            for iso in apic.interrupt_source_overrides.iter() {
-                warn!(
-                    "ISO: irq={} to gsi={}",
-                    iso.isa_source, iso.global_system_interrupt
-                );
-            }
-        }
-        _ => panic!("Non-APIC interrupt model"),
-    }
+    // match platform_info.interrupt_model {
+    //     InterruptModel::Apic(apic) => {
+    //         // Адрес Local APIC (общий для всех ядер)
+    //         let lapic_addr = apic.local_apic_address;
+    //         info!("Local APIC address: {:#x}", lapic_addr);
+    //
+    //         // Перечисляем все IO APIC
+    //         for io_apic in apic.io_apics.iter() {
+    //             info!(
+    //                 "IO APIC id={}, addr={:#x}, gsi_base={}",
+    //                 io_apic.id, io_apic.address, io_apic.global_system_interrupt_base,
+    //             );
+    //         }
+    //
+    //         // Interrupt Source Overrides (например, IRQ0 → GSI2 для таймера)
+    //         for iso in apic.interrupt_source_overrides.iter() {
+    //             warn!(
+    //                 "ISO: irq={} to gsi={}",
+    //                 iso.isa_source, iso.global_system_interrupt
+    //             );
+    //         }
+    //     }
+    //     _ => panic!("Non-APIC interrupt model"),
+    // }
 
     // fn test() {
     //     test()
@@ -286,7 +286,7 @@ fn main(
     global_scheduler().schedule_thread(thread_context);
 
     info!("`init` program ready, starting scheduler");
-    start_scheduling_on_next_tick()
+    start_scheduling()
 }
 
 /// This function is called on panic.

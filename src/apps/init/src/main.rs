@@ -12,6 +12,12 @@ pub extern "sysv64" fn _start() -> ! {
             // asm!("int $0x80", options(nomem, nostack));
 
             syscall!(42);
+
+            for i in 0..0x100000 {
+                unsafe {
+                    asm!("pause");
+                }
+            }
         }
     }
 }

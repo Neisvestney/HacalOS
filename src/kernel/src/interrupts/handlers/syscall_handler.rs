@@ -1,6 +1,17 @@
+use crate::interrupts::iret_wit_context::iret_with_context;
+use crate::memory::paging::write_cr3;
+use crate::percpu;
 use crate::percpu::PerCpu;
+use crate::scheduler::SCHEDULE_TICKS;
+use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
+use crate::scheduler::global_scheduler::global_scheduler;
+use crate::scheduler::schedule_on_interrupt::syscall_schedule_check;
 use core::arch::{asm, naked_asm};
+use core::hint;
+use core::sync::atomic::Ordering;
 use log::info;
+use volatile::VolatilePtr;
+use x86_64::instructions::hlt;
 
 #[unsafe(naked)]
 pub extern "C" fn syscall_entry() -> ! {
@@ -26,7 +37,6 @@ pub extern "C" fn syscall_entry() -> ! {
         "push r13",
         "push r14",
         "push r15",
-
         "mov rdi, rsp", // &SyscallContext
         "call {handler}",
 
@@ -79,7 +89,20 @@ pub struct SyscallContext {
 }
 
 pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
+    let percpu = unsafe { percpu::current() };
+
+    percpu.scheduling_disabled.store(true, Ordering::Release);
+    x86_64::instructions::interrupts::enable();
+
     let syscall_number = ctx.rax;
 
-    info!("syscall_number: {}", syscall_number);
+    // for i in 0..0x1000000 {
+    //     hint::spin_loop();
+    // }
+
+    //info!("syscall_number: {}", syscall_number);
+    syscall_schedule_check(percpu, ctx);
+
+    x86_64::instructions::interrupts::disable();
+    percpu.scheduling_disabled.store(false, Ordering::Release);
 }
