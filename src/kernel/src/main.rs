@@ -264,11 +264,12 @@ fn main(
     // }
     // info!("Hello after interrupt");
 
-    info!("Loading `init` program from inithfs");
     let inithfs_bytes = unsafe { &*relocate_raw_pointer(inithfs_bytes) };
     let inithfs = InitHFsRoot::from_bytes(inithfs_bytes).expect("Failed to parse InitHFs");
 
     let load = |path: &str| {
+        info!("Loading `{}` program from inithfs", path);
+
         let file_init_program_bytes = inithfs.get_file_contents(path).unwrap();
         info!(
         "File size: {}, {:p}",

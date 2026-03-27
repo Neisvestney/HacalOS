@@ -65,10 +65,8 @@ pub unsafe fn timer_schedule_next(
     } else {
         *stored_thread_context_guard = None;
         drop(stored_thread_context_guard);
-        loop {
-            // No more things to do
-            hlt();
-        }
+
+        no_tasks_hlt_loop(percpu);
     }
 }
 
@@ -114,10 +112,21 @@ pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option
             percpu.scheduling_disabled.store(false, Ordering::Release);
             x86_64::instructions::interrupts::enable();
 
-            loop {
-                // No more things to do
-                hlt();
-            }
+            no_tasks_hlt_loop(percpu);
         }
+    }
+}
+
+#[inline(always)]
+fn no_tasks_hlt_loop(percpu: &PerCpu) -> ! {
+    unsafe {
+        asm!(
+        "mov rsp, {kstack}",
+        kstack = in(reg) percpu.kernel_stack_top.as_u64(),
+        ); // Moving rsp back to top to prevent stack overflow
+    }
+    loop {
+        // No more things to do
+        hlt();
     }
 }
