@@ -23,6 +23,7 @@ pub type ProcessId = u64;
 pub struct Process {
     pub id: ProcessId,
     pub exe: String,
+    pub status: ProcessStatus,
     pub page_table: *mut PageTable,
     pub page_table_phys_frame: PhysFrame,
     pub entry_point: VirtAddr,
@@ -41,6 +42,7 @@ impl Process {
         Process {
             id,
             exe,
+            status: ProcessStatus::Running,
             page_table,
             page_table_phys_frame,
             entry_point,
@@ -112,6 +114,12 @@ impl Debug for Process {
             .field("virtual_memory_allocator", &self.virtual_memory_allocator)
             .finish()
     }
+}
+
+pub enum ProcessStatus {
+    Running,
+    Exiting(i64),
+    Exited(i64),
 }
 
 #[derive(Debug)]

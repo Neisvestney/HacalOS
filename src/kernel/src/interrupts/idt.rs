@@ -1,16 +1,25 @@
+use alloc::boxed::Box;
+use core::ops::Deref;
+use core::sync::atomic::Ordering;
 use crate::interrupts::handlers::lapic_timer_handler::lapic_timer_entry;
 use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
-use crate::memory::stack::STACK_GUARD_PAGES;
+use crate::memory::stack::KERNEL_STACK_GUARD_PAGES;
 use crate::utils::with_swaped_gs::with_swaped_gs;
 use crate::{gdt, percpu, print};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
+use spin::MutexGuard;
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode, SelectorErrorCode,
 };
 use x86_64::structures::paging::Page;
 use x86_64::{PrivilegeLevel, VirtAddr};
+use crate::percpu::PerCpu;
+use crate::process::processes_manager::PROCESSES_MANAGER;
+use crate::scheduler::global_scheduler::global_scheduler;
+use crate::scheduler::schedule_on_interrupt::no_tasks_hlt_loop;
+use crate::scheduler::thread_context::ThreadContext;
 
 pub const LAPIC_TIMER_VECTOR: u8 = 0x20;
 pub const LAPIC_KEYBOARD_VECTOR: u8 = IO_APIC_BASE_OFFSET + KEYBOARD_ISA_IRQ;
@@ -109,16 +118,31 @@ extern "x86-interrupt" fn page_fault_handler(
         stack_frame, page_fault_error_code, virt_address
     );
 
-    let stack_guard_pages = STACK_GUARD_PAGES.get().unwrap().read();
-    let virt_address = virt_address.unwrap();
-    if let Some(guard_page) = stack_guard_pages
-        .iter()
-        .find(|p| **p == Page::containing_address(virt_address))
-    {
-        error!("Hit stack guard page: {:#x?}", guard_page);
-    }
+    with_swaped_gs(|| {
+        let percpu = unsafe { percpu::current() };
+        let maybe_thread_context = current_thread_context(percpu);
 
-    panic!("EXCEPTION: PAGE FAULT");
+        if let Some(thread_context_guard) = maybe_thread_context && let Some(thread_context) = thread_context_guard.deref() {
+            let mut processes = PROCESSES_MANAGER.get().unwrap().write();
+            error!("Exception occurred in thread: {:?}", thread_context);
+            let global_scheduler = global_scheduler();
+            processes.kill_process(thread_context.process_id, global_scheduler).unwrap();
+            drop(thread_context_guard);
+            x86_64::instructions::interrupts::enable();
+            no_tasks_hlt_loop(percpu) // TODO Run next thread here instead of waiting for timer
+        } else {
+            let stack_guard_pages = KERNEL_STACK_GUARD_PAGES.get().unwrap().read();
+            let virt_address = virt_address.unwrap();
+            if let Some(guard_page) = stack_guard_pages
+                .iter()
+                .find(|p| **p == Page::containing_address(virt_address))
+            {
+                error!("Hit stack guard page: {:#x?}", guard_page);
+            }
+
+            panic!("KERNEL EXCEPTION: PAGE FAULT")
+        }
+    }, stack_frame.code_segment);
 }
 
 extern "x86-interrupt" fn double_fault_handler(
@@ -126,7 +150,7 @@ extern "x86-interrupt" fn double_fault_handler(
     error_code: u64,
 ) -> ! {
     panic!(
-        "EXCEPTION: DOUBLE FAULT\n{:#?}\n{:x}",
+        "KERNEL EXCEPTION: DOUBLE FAULT\n{:#?}\n{:x}",
         stack_frame, error_code
     );
 }
@@ -149,4 +173,16 @@ extern "x86-interrupt" fn lapic_error_handler(stack_frame: InterruptStackFrame) 
         },
         stack_frame.code_segment,
     );
+}
+
+fn current_thread_context(percpu: &PerCpu) -> Option<MutexGuard<Option<Box<ThreadContext>>>> {
+    use core::sync::atomic::{Ordering};
+
+    let scheduling_disabled = percpu.scheduling_disabled.load(Ordering::Acquire);
+
+    if !scheduling_disabled {
+        percpu.current_thread_context.try_lock()
+    } else {
+        None
+    }
 }

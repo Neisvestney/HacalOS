@@ -17,6 +17,9 @@ pub extern "sysv64" fn _start() -> ! {
                     asm!("pause");
                 }
             }
+
+            let prt = 0x0 as *mut u8;
+            prt.write_volatile(0x1); // Causes #PF
         }
     }
 }

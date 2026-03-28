@@ -10,8 +10,9 @@ use crate::interrupts::iret_wit_context::iret_with_context;
 use crate::memory::paging::write_cr3;
 use crate::percpu::PerCpu;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
-use crate::scheduler::global_scheduler::global_scheduler;
+use crate::scheduler::global_scheduler::{global_scheduler, GlobalScheduler};
 use crate::scheduler::SCHEDULE_TICKS;
+use crate::scheduler::signals::ThreadSignal;
 use crate::scheduler::thread_context::ThreadContext;
 
 pub fn timer_schedule_tick(percpu: &PerCpu) -> u64 {
@@ -43,25 +44,7 @@ pub unsafe fn timer_schedule_next(
         };
 
     if let Some(next_thread_context) = next_thread_context {
-        percpu
-            .current_thread_ticks_left
-            .store(SCHEDULE_TICKS, Ordering::Relaxed);
-
-        // Switching to next thread
-        unsafe {
-            write_cr3(next_thread_context.page_table_phys_frame);
-        }
-
-        let cpu_registries_context = next_thread_context.cpu_registries_context;
-
-        *stored_thread_context_guard = Some(next_thread_context);
-        x86_64::instructions::interrupts::disable();
-        drop(stored_thread_context_guard);
-        // info!("ts");
-        unsafe {
-            asm!("swapgs");
-            iret_with_context(&cpu_registries_context)
-        }
+        check_for_signals_and_switch_to_thread(percpu, next_thread_context, stored_thread_context_guard, global_scheduler)
     } else {
         *stored_thread_context_guard = None;
         drop(stored_thread_context_guard);
@@ -85,40 +68,59 @@ pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option
             };
 
         if let Some(next_thread_context) = next_thread_context {
-            percpu
-                .current_thread_ticks_left
-                .store(SCHEDULE_TICKS, Ordering::Relaxed);
-
-            // Switching to next thread
-            unsafe {
-                write_cr3(next_thread_context.page_table_phys_frame);
-            }
-
-            let cpu_registries_context = next_thread_context.cpu_registries_context;
-
-            *stored_thread_context_guard = Some(next_thread_context);
-            x86_64::instructions::interrupts::disable();
-            drop(stored_thread_context_guard);
-            // info!("sts");
-            unsafe {
-                asm!("swapgs");
-                iret_with_context(&cpu_registries_context);
-            }
+            check_for_signals_and_switch_to_thread(percpu, next_thread_context, stored_thread_context_guard, global_scheduler)
         } else {
             *stored_thread_context_guard = None;
-
-            x86_64::instructions::interrupts::disable();
             drop(stored_thread_context_guard);
-            percpu.scheduling_disabled.store(false, Ordering::Release);
-            x86_64::instructions::interrupts::enable();
 
             no_tasks_hlt_loop(percpu);
         }
     }
 }
 
+fn check_for_signals_and_switch_to_thread(percpu: &PerCpu, next_thread_context: Box<ThreadContext>, mut stored_thread_context_guard: MutexGuard<Option<Box<ThreadContext>>>, global_scheduler: &GlobalScheduler) -> ! {
+    let next_pending_signal = global_scheduler.get_next_pending_signal(next_thread_context.process_id, next_thread_context.process_id);
+    if let Some(next_pending_signal) = next_pending_signal {
+        info!("Pending signal {:?} for {} {}", next_pending_signal, next_thread_context.process_id, next_thread_context.process_id);
+        match next_pending_signal {
+            ThreadSignal::Terminate => {
+                *stored_thread_context_guard = None;
+                drop(next_thread_context);
+                drop(stored_thread_context_guard);
+
+                no_tasks_hlt_loop(percpu);
+            }
+        }
+    } else {
+        switch_to_thread(percpu, next_thread_context, stored_thread_context_guard)
+    }
+}
+
+fn switch_to_thread(percpu: &PerCpu, next_thread_context: Box<ThreadContext>, mut stored_thread_context_guard: MutexGuard<Option<Box<ThreadContext>>>) -> ! {
+    percpu
+        .current_thread_ticks_left
+        .store(SCHEDULE_TICKS, Ordering::Relaxed);
+
+    // Switching to next thread
+    unsafe {
+        write_cr3(next_thread_context.page_table_phys_frame);
+    }
+
+    let cpu_registries_context = next_thread_context.cpu_registries_context;
+
+    *stored_thread_context_guard = Some(next_thread_context);
+    x86_64::instructions::interrupts::disable();
+    drop(stored_thread_context_guard);
+    // info!("ts");
+
+    unsafe {
+        asm!("swapgs");
+        iret_with_context(&cpu_registries_context)
+    }
+}
+
 #[inline(always)]
-fn no_tasks_hlt_loop(percpu: &PerCpu) -> ! {
+pub fn no_tasks_hlt_loop(percpu: &PerCpu) -> ! {
     unsafe {
         asm!(
         "mov rsp, {kstack}",

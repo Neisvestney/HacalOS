@@ -1,3 +1,4 @@
+use log::info;
 use crate::gdt::segment_selectors;
 use crate::process::ProcessId;
 use crate::process::thread::ThreadId;
@@ -40,5 +41,11 @@ impl ThreadContext {
             cpu_registries_context,
             page_table_phys_frame,
         }
+    }
+}
+
+impl Drop for ThreadContext {
+    fn drop(&mut self) {
+        info!("Dropping ThreadContext pid {} tid {}", self.process_id, self.thread_id);
     }
 }

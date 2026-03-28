@@ -276,8 +276,14 @@ fn main(
         file_init_program_bytes.len(),
         file_init_program_bytes
     );
-        let mut process = load_program_to_memory(1, path.to_string(), file_init_program_bytes)
-            .unwrap_or_else(|_| panic!("Failed to load program `{}`", path));
+        let process_id = PROCESSES_MANAGER
+            .get()
+            .unwrap()
+            .write()
+            .get_next_process_id();
+
+        let mut process = load_program_to_memory(process_id, path.to_string(), file_init_program_bytes)
+            .unwrap_or_else(|e| panic!("Failed to load program `{}`\nError: {}", path, e));
         let thread_context = process
             .add_main_thread()
             .unwrap_or_else(|_| panic!("Failed to add main thread for `{}`", path));

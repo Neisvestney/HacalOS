@@ -1,19 +1,24 @@
 use crate::GLOBAL_SCHEDULER;
 use crate::scheduler::thread_context::ThreadContext;
 use alloc::boxed::Box;
-use alloc::collections::VecDeque;
+use alloc::collections::{BTreeMap, BTreeSet, VecDeque};
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
 use spin::RwLock;
+use crate::process::ProcessId;
+use crate::process::thread::ThreadId;
+use crate::scheduler::signals::{Signals, ThreadSignal};
 
 pub struct GlobalScheduler {
     pub threads_queue: RwLock<VecDeque<Box<ThreadContext>>>,
+    pub pending_signals: RwLock<BTreeMap<ProcessId, Signals>>,
 }
 
 impl GlobalScheduler {
     pub fn new() -> Self {
         GlobalScheduler {
             threads_queue: RwLock::new(VecDeque::new()),
+            pending_signals: RwLock::new(BTreeMap::new()),
         }
     }
 
@@ -40,6 +45,31 @@ impl GlobalScheduler {
         threads_queue: &mut VecDeque<Box<ThreadContext>>,
     ) -> Option<Box<ThreadContext>> {
         threads_queue.pop_front()
+    }
+
+    pub fn schedule_signal(&self, process_id: ProcessId, thread_id: ThreadId, signal: ThreadSignal, push_front: bool) {
+        let mut pending_signals = self.pending_signals.write();
+        let process_pending_signals = pending_signals.entry(process_id).or_default();
+        let thread_pending_signals = process_pending_signals.thread_signals.entry(thread_id).or_default();
+        if push_front {
+            thread_pending_signals.push_front(signal);
+        } else {
+            thread_pending_signals.push_back(signal);
+        }
+    }
+
+    pub fn get_next_pending_signal(&self, process_id: ProcessId, thread_id: ThreadId) -> Option<ThreadSignal> {
+        let mut pending_signals_guard = self.pending_signals.write();
+        if let Some(process_pending_signals) = pending_signals_guard.get_mut(&process_id) {
+            if let Some(thread_pending_signals) = process_pending_signals.thread_signals.get_mut(&thread_id) {
+                let pending_signal = thread_pending_signals.pop_front();
+                pending_signal
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 

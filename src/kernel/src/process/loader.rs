@@ -5,8 +5,10 @@ use crate::utils::relocate::relocate_frame;
 use crate::{FRAME_ALLOCATOR, PAGE_TABLE_MAPPER};
 use alloc::string::String;
 use core::ops::DerefMut;
+use goblin::elf64::header;
 use goblin::elf::Elf;
 use goblin::elf64::program_header::PT_LOAD;
+use thiserror::Error;
 use uefi::table::boot::PAGE_SIZE;
 use x86_64::VirtAddr;
 use x86_64::structures::paging::{Mapper, Page, PageTable, PageTableFlags};
@@ -15,7 +17,17 @@ pub fn load_program_to_memory(
     process_id: ProcessId,
     name: String,
     bytes: &[u8],
-) -> Result<Process, goblin::error::Error> {
+) -> Result<Process, ProgramLoadError> {
+    let elf = Elf::parse(bytes)?;
+
+    if elf.header.e_type != header::ET_EXEC {
+        return Err(ProgramLoadError::NotExecutable);
+    }
+
+    if elf.header.e_machine != header::EM_X86_64 {
+        return Err(ProgramLoadError::ArchitectureNotSupported);
+    }
+
     let kernel_page_table_manager = PAGE_TABLE_MAPPER.get().unwrap().lock();
     let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
 
@@ -26,7 +38,6 @@ pub fn load_program_to_memory(
         kernel_page_table_manager.level_4_table(),
     );
 
-    let elf = Elf::parse(bytes)?;
     for ph in &elf.program_headers {
         if ph.p_type == PT_LOAD {
             let bytes_range = &bytes[ph.file_range()];
@@ -96,4 +107,14 @@ pub fn load_program_to_memory(
         page_table_phys_frame,
         VirtAddr::new(elf.entry),
     ))
+}
+
+#[derive(Error, Debug)]
+pub enum ProgramLoadError {
+    #[error("Program not executable")]
+    NotExecutable,
+    #[error("Architecture not supported")]
+    ArchitectureNotSupported,
+    #[error("Failed to parse elf")]
+    ElfParseError(#[from] goblin::error::Error),
 }

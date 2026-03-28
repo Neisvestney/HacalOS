@@ -12,7 +12,7 @@ use x86_64::structures::paging::{Page, Size4KiB};
 
 const KERNEL_STACK_PAGES_COUNT: u64 = 40;
 
-pub static STACK_GUARD_PAGES: Once<RwLock<Vec<Page<Size4KiB>>>> = Once::new();
+pub static KERNEL_STACK_GUARD_PAGES: Once<RwLock<Vec<Page<Size4KiB>>>> = Once::new();
 
 pub fn stack_top_from_slice(stack_slice_pointer: *const [u8]) -> *const u8 {
     let start_bottom = stack_slice_pointer as *const u8;
@@ -36,7 +36,7 @@ pub fn allocate_stack() -> Result<(VirtAddr, Page<Size4KiB>), VirtualMemoryAlloc
 
     let stack_top = stack_top_from_slice(allocated);
 
-    let mut guard_pages = STACK_GUARD_PAGES
+    let mut guard_pages = KERNEL_STACK_GUARD_PAGES
         .call_once(|| RwLock::new(Vec::new()))
         .write();
     guard_pages.push(guard_page);

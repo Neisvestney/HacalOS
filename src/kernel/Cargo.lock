@@ -182,6 +182,7 @@ dependencies = [
  "pic8259",
  "psf2",
  "spin 0.10.0",
+ "thiserror",
  "uart_16550",
  "uefi",
  "volatile 0.6.1",

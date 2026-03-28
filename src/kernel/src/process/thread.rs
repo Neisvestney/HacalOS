@@ -19,6 +19,7 @@ pub enum ThreadStatus {
     Running,
     Blocked(ThreadContext),
     Sleeping,
+    Exiting,
 }
 
 impl Thread {
