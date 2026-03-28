@@ -1,3 +1,4 @@
+use core::fmt::{Display, Formatter};
 use log::info;
 use crate::gdt::segment_selectors;
 use crate::process::ProcessId;
@@ -46,6 +47,14 @@ impl ThreadContext {
 
 impl Drop for ThreadContext {
     fn drop(&mut self) {
-        info!("Dropping ThreadContext pid {} tid {}", self.process_id, self.thread_id);
+        if cfg!(debug_assertions) {
+            info!("Dropping {}", self);
+        }
+    }
+}
+
+impl Display for ThreadContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "ThreadContext [pid: {}, tid: {}]", self.process_id, self.thread_id)
     }
 }

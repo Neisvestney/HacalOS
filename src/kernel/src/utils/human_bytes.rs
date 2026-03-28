@@ -23,3 +23,7 @@ pub fn human_bytes(num: impl Into<f64>) -> String {
     let unit = UNITS[exponent as usize];
     format!("{}{} {}", negative, pretty_bytes, unit)
 }
+
+pub fn u64_human_bytes_formatter(value: &u64, fmt: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
+    write!(fmt, "{}", human_bytes(*value as f64))
+}

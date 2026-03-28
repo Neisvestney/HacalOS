@@ -9,6 +9,7 @@ use crate::interrupts::handlers::syscall_handler::SyscallContext;
 use crate::interrupts::iret_wit_context::iret_with_context;
 use crate::memory::paging::write_cr3;
 use crate::percpu::PerCpu;
+use crate::process::processes_manager::PROCESSES_MANAGER;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
 use crate::scheduler::global_scheduler::{global_scheduler, GlobalScheduler};
 use crate::scheduler::SCHEDULE_TICKS;
@@ -84,10 +85,15 @@ fn check_for_signals_and_switch_to_thread(percpu: &PerCpu, next_thread_context: 
         info!("Pending signal {:?} for {} {}", next_pending_signal, next_thread_context.process_id, next_thread_context.process_id);
         match next_pending_signal {
             ThreadSignal::Terminate => {
-                *stored_thread_context_guard = None;
-                drop(next_thread_context);
-                drop(stored_thread_context_guard);
+                {
+                    *stored_thread_context_guard = None;
 
+                    let mut processes_manager = PROCESSES_MANAGER.get().unwrap().write();
+                    processes_manager.remove_thread_and_cleanup(next_thread_context.process_id, next_thread_context.process_id).unwrap();
+
+                    drop(next_thread_context);
+                }
+                drop(stored_thread_context_guard);
                 no_tasks_hlt_loop(percpu);
             }
         }

@@ -4,6 +4,7 @@ use core::ptr::slice_from_raw_parts_mut;
 use spin::{Mutex, Once};
 use x86_64::structures::paging::mapper::{MapToError, UnmapError};
 use x86_64::structures::paging::{Mapper, Page, Size4KiB};
+use x86_64::structures::paging::page::PageRangeInclusive;
 
 pub static KERNEL_VIRTUAL_MEMORY_ALLOCATOR: Once<Mutex<VirtualMemoryAllocator>> = Once::new();
 
@@ -62,7 +63,7 @@ impl VirtualMemoryAllocator {
         &mut self,
         count: u64,
         page_table_mapper: &mut impl Mapper<Size4KiB>,
-    ) -> Result<(*const [u8], Page<Size4KiB>), VirtualMemoryAllocatorError> {
+    ) -> Result<(*const [u8], Page<Size4KiB>, PageRangeInclusive), VirtualMemoryAllocatorError> {
         if count + 1 > self.region_pages_count - self.pages_allocated {
             return Err(VirtualMemoryAllocatorError::OutOfMemory);
         }
@@ -71,6 +72,11 @@ impl VirtualMemoryAllocator {
         let page_range = {
             let start_page = self.region_start + self.pages_allocated + 1;
             let end_page = start_page + count - 1;
+            Page::range_inclusive(start_page, end_page)
+        };
+        let total_page_range = {
+            let start_page = self.region_start + self.pages_allocated;
+            let end_page = start_page + count;
             Page::range_inclusive(start_page, end_page)
         };
 
@@ -97,6 +103,7 @@ impl VirtualMemoryAllocator {
                 page_range.size() as usize,
             ),
             protection_page,
+            total_page_range,
         ))
     }
 }

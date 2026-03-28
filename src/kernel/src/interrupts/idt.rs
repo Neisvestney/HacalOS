@@ -123,11 +123,13 @@ extern "x86-interrupt" fn page_fault_handler(
         let maybe_thread_context = current_thread_context(percpu);
 
         if let Some(thread_context_guard) = maybe_thread_context && let Some(thread_context) = thread_context_guard.deref() {
-            let mut processes = PROCESSES_MANAGER.get().unwrap().write();
-            error!("Exception occurred in thread: {:?}", thread_context);
-            let global_scheduler = global_scheduler();
-            processes.kill_process(thread_context.process_id, global_scheduler).unwrap();
-            drop(thread_context_guard);
+            {
+                let mut processes = PROCESSES_MANAGER.get().unwrap().write();
+                error!("Exception occurred in thread: {:?}", thread_context);
+                let global_scheduler = global_scheduler();
+                processes.kill_process(thread_context.process_id, global_scheduler).unwrap();
+                drop(thread_context_guard);
+            }
             x86_64::instructions::interrupts::enable();
             no_tasks_hlt_loop(percpu) // TODO Run next thread here instead of waiting for timer
         } else {

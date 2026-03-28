@@ -31,3 +31,4 @@ ez_hpet = "1.0.0"
 goblin = { version = "0.10.5", default-features = false, features = ["alloc", "elf64", "elf32", "endian_fd", "log"] }
 volatile = "0.6.1"
 thiserror = { version = "2.0.18", default-features = false }
+derivative = { version = "2.2.0", features = ["use_core"] }

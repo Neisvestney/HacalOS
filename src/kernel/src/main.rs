@@ -50,6 +50,7 @@ use uefi::table::{Runtime, SystemTable};
 use x86_64::VirtAddr;
 use x86_64::instructions::hlt;
 use x86_64::structures::paging::{OffsetPageTable, Page, Size4KiB};
+use x86_64::structures::paging::page::PageRangeInclusive;
 
 mod acpi;
 mod frame_alloc;
@@ -86,6 +87,8 @@ const USER_PROCESS_VIRTUAL_MEMORY_REGION_START: Page<Size4KiB> =
 const USER_PROCESS_VIRTUAL_MEMORY_REGION_PAGES_COUNT: u64 = 0x100000000;
 
 const USER_PROCESS_STACK_PAGES_COUNT: u64 = 40;
+
+const LOWER_HALF_PAGE_RANGE: PageRangeInclusive = Page::range_inclusive(Page::containing_address(VirtAddr::new(0)), Page::containing_address(VirtAddr::new(0x00007FFFFFFFFFFF)));
 
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]

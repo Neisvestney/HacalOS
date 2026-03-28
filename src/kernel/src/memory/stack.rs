@@ -25,7 +25,7 @@ pub fn stack_top_from_slice(stack_slice_pointer: *const [u8]) -> *const u8 {
 
 pub fn allocate_stack() -> Result<(VirtAddr, Page<Size4KiB>), VirtualMemoryAllocatorError> {
     let mut page_table_mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
-    let (allocated, guard_page) = KERNEL_VIRTUAL_MEMORY_ALLOCATOR
+    let (allocated, guard_page, _) = KERNEL_VIRTUAL_MEMORY_ALLOCATOR
         .get()
         .unwrap()
         .lock()
