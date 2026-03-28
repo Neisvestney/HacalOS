@@ -101,7 +101,7 @@ os.vdi: $(OUT)/os.img
 run: $(OUT)/os.img
 	qemu-system-x86_64 -machine q35 $(QEMU_DEBUG_FLAGS) -m 256M \
 	    --bios $(OVMF) -cpu qemu64 -smp 4 \
-	    -drive file=$< -serial stdio -usb
+	    -drive format=raw,file=$< -serial stdio -usb
 
 clean:
 	rm -rf $(OUT)
