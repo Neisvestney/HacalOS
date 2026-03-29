@@ -1,17 +1,10 @@
-use crate::interrupts::iret_wit_context::iret_with_context;
-use crate::memory::paging::write_cr3;
 use crate::percpu;
 use crate::percpu::PerCpu;
-use crate::scheduler::SCHEDULE_TICKS;
-use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
-use crate::scheduler::global_scheduler::global_scheduler;
 use crate::scheduler::schedule_on_interrupt::syscall_schedule_check;
-use core::arch::{asm, naked_asm};
-use core::hint;
-use core::sync::atomic::Ordering;
-use log::info;
-use volatile::VolatilePtr;
-use x86_64::instructions::hlt;
+use core::arch::{naked_asm};
+use core::ops::{Deref};
+use log::{warn};
+use crate::syscalls::{SyscallArgs, SYSCALLS_TABLE};
 
 #[unsafe(naked)]
 pub extern "C" fn syscall_entry() -> ! {
@@ -70,6 +63,7 @@ pub extern "C" fn syscall_entry() -> ! {
 }
 
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
 pub struct SyscallContext {
     pub r15: u64,
     pub r14: u64,
@@ -88,17 +82,29 @@ pub struct SyscallContext {
     pub rax: u64,
 }
 
+
 pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     let percpu = unsafe { percpu::current() };
     let stored_thread_context = percpu.current_thread_context.lock();
     x86_64::instructions::interrupts::enable();
 
-    let syscall_number = ctx.rax;
+    if let Some(current_thread_context) = stored_thread_context.deref() {
+        let syscall_handler = SYSCALLS_TABLE.get(ctx.rax as usize);
+        let ret = if let Some(handler) = syscall_handler {
+            handler(SyscallArgs::from(ctx.deref()), percpu, current_thread_context)
+        } else {
+            warn!("{} called unknown syscall #{}", current_thread_context, ctx.rax);
+            0
+        };
+
+        ctx.rax = ret;
+    } else {
+        panic!("Syscall called with no thread context\n{:?}\n{:?}", ctx, percpu);
+    }
 
     // for i in 0..0x1000000 {
     //     hint::spin_loop();
     // }
 
-    info!("syscall_number: {}", syscall_number);
     syscall_schedule_check(stored_thread_context, percpu, ctx);
 }

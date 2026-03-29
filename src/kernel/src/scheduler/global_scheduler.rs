@@ -71,6 +71,11 @@ impl GlobalScheduler {
             None
         }
     }
+    
+    pub fn remove_process_signals_queue(&self, process_id: ProcessId) {
+        let mut pending_signals_guard = self.pending_signals.write();
+        pending_signals_guard.remove(&process_id);
+    }
 }
 
 pub struct GlobalSchedulerWrapper(pub UnsafeCell<MaybeUninit<GlobalScheduler>>);

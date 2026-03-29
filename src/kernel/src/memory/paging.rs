@@ -5,7 +5,7 @@ use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFF
 use alloc::vec::Vec;
 use bootloader_structs::{GopInfo, KernelMapEntry};
 use core::ops::DerefMut;
-use log::warn;
+use log::{info, warn};
 use psf2::Font;
 use spin::Mutex;
 use uefi::table::boot::MemoryMap;

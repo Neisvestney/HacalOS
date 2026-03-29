@@ -80,16 +80,16 @@ pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option
 }
 
 fn check_for_signals_and_switch_to_thread(percpu: &PerCpu, next_thread_context: Box<ThreadContext>, mut stored_thread_context_guard: MutexGuard<Option<Box<ThreadContext>>>, global_scheduler: &GlobalScheduler) -> ! {
-    let next_pending_signal = global_scheduler.get_next_pending_signal(next_thread_context.process_id, next_thread_context.process_id);
+    let next_pending_signal = global_scheduler.get_next_pending_signal(next_thread_context.process_id, next_thread_context.thread_id);
     if let Some(next_pending_signal) = next_pending_signal {
-        info!("Pending signal {:?} for {} {}", next_pending_signal, next_thread_context.process_id, next_thread_context.process_id);
+        info!("Handling signal {:?} for {}", next_pending_signal, next_thread_context);
         match next_pending_signal {
             ThreadSignal::Terminate => {
                 {
                     *stored_thread_context_guard = None;
 
                     let mut processes_manager = PROCESSES_MANAGER.get().unwrap().write();
-                    processes_manager.remove_thread_and_cleanup(next_thread_context.process_id, next_thread_context.process_id).unwrap();
+                    processes_manager.remove_thread_and_cleanup(next_thread_context.process_id, next_thread_context.thread_id, global_scheduler).unwrap();
 
                     drop(next_thread_context);
                 }

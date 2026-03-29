@@ -127,7 +127,7 @@ extern "x86-interrupt" fn page_fault_handler(
                 let mut processes = PROCESSES_MANAGER.get().unwrap().write();
                 error!("Exception occurred in thread: {:?}", thread_context);
                 let global_scheduler = global_scheduler();
-                processes.kill_process(thread_context.process_id, global_scheduler).unwrap();
+                processes.kill_process(-1, thread_context.process_id, global_scheduler).unwrap();
                 drop(thread_context_guard);
             }
             x86_64::instructions::interrupts::enable();

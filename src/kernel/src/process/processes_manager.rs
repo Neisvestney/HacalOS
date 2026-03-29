@@ -35,18 +35,19 @@ impl ProcessesManager {
         self.processes.insert(process.id, process);
     }
 
-    pub fn kill_process(&mut self, process_id: ProcessId, global_scheduler: &GlobalScheduler) -> Result<(), ProcessesManagerError> {
+    pub fn kill_process(&mut self, exit_code: i32, process_id: ProcessId, global_scheduler: &GlobalScheduler) -> Result<&Process, ProcessesManagerError> {
         let process = self.processes.get_mut(&process_id).ok_or(ProcessesManagerError::ProcessNotFound)?;
-        process.status = ProcessStatus::Exiting(-1);
+        process.status = ProcessStatus::Exiting(exit_code);
 
         for thread in &mut process.threads {
             thread.status = ThreadStatus::Exiting;
             global_scheduler.schedule_signal(process_id, thread.id, ThreadSignal::Terminate, true);
         }
-        Ok(())
+
+        Ok(process)
     }
 
-    pub fn remove_thread_and_cleanup(&mut self, process_id: ProcessId, thread_id: ThreadId) -> Result<(), ProcessesManagerError> {
+    pub fn remove_thread_and_cleanup(&mut self, process_id: ProcessId, thread_id: ThreadId, global_scheduler: &GlobalScheduler) -> Result<(), ProcessesManagerError> {
         let process = self.processes.get_mut(&process_id).ok_or(ProcessesManagerError::ProcessNotFound)?;
         let thread_index = process.threads.iter().position(|thread| thread.id == thread_id).ok_or(ProcessesManagerError::ThreadNotFound)?;
         process.threads.remove(thread_index);
@@ -54,6 +55,7 @@ impl ProcessesManager {
         if process.threads.is_empty() {
             let mut process = self.processes.remove(&process_id).unwrap();
             unload_process_from_memory(&mut process);
+            global_scheduler.remove_process_signals_queue(process_id);
         }
 
         Ok(())

@@ -67,6 +67,7 @@ mod serial;
 mod syscall;
 mod uefi_runtime_services;
 mod utils;
+mod syscalls;
 
 // static BOOT_INFO: Once<BootInfo> = Once::new();
 static CONSOLE: Once<Mutex<ConsoleRenderer>> = Once::new();

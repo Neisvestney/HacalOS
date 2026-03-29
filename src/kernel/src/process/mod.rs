@@ -131,8 +131,8 @@ impl Display for Process {
 #[derive(Debug)]
 pub enum ProcessStatus {
     Running,
-    Exiting(i64),
-    Exited(i64),
+    Exiting(i32),
+    Exited(i32),
 }
 
 #[derive(Debug)]
