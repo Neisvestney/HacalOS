@@ -59,6 +59,12 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
                 self.reserved_memory_bytes += entry.page_count * 4096;
             }
         }
+
+        if !self.boolean_array[0] {
+            self.lock_page(PhysFrame::from_start_address(PhysAddr::new(0)).unwrap());
+            self.reserved_memory_bytes += 4096;
+            self.free_memory_bytes -= 4096;
+        }
     }
 
     pub unsafe fn relocate_buffer(&mut self) {
