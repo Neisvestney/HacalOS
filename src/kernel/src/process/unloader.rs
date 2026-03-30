@@ -6,7 +6,7 @@ use core::ops::DerefMut;
 use core::ptr;
 use x86_64::PhysAddr;
 use x86_64::structures::paging::{FrameDeallocator, Mapper, PhysFrame};
-use x86_64::structures::paging::mapper::{CleanUp, UnmapError};
+use x86_64::structures::paging::mapper::{CleanUp, TranslateError, UnmapError};
 
 pub fn unload_process_from_memory(process: &mut Process) {
     // info!("MemoryMap: {:#?}", process.memory_map);
@@ -18,6 +18,10 @@ pub fn unload_process_from_memory(process: &mut Process) {
 
         for memory_map_entry in &process.memory_map {
             for page in memory_map_entry.page_range {
+                if let Ok(frame) = page_table_manager.translate_page(page) {
+                    frame_allocator.free_page(frame);
+                }
+
                 match page_table_manager.unmap(page) {
                     Ok((_, mapper_flush)) => mapper_flush.ignore(),
                     Err(UnmapError::PageNotMapped) => {}

@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 use core::fmt::{Debug, Display, Formatter};
 use derivative::Derivative;
 use log::info;
-use x86_64::VirtAddr;
+use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{PageTable, PhysFrame};
 
 pub mod loader;
@@ -116,6 +116,18 @@ impl Process {
 
 impl Drop for Process {
     fn drop(&mut self) {
+        if !self.threads.is_empty() {
+            panic!("{} was dropped with non empty threads vec", self);
+        }
+
+        if !self.memory_map.is_empty() {
+            panic!("{} was dropped with non empty memory map", self);
+        }
+
+        if self.page_table_phys_frame != PhysFrame::from_start_address(PhysAddr::zero()).unwrap() {
+            panic!("{} was dropped with non empty page table", self);
+        }
+
         if cfg!(debug_assertions) {
             info!("Dropping {}", self);
         }
