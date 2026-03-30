@@ -2,9 +2,9 @@ use crate::percpu::PerCpu;
 use crate::process::processes_manager::PROCESSES_MANAGER;
 use crate::scheduler::global_scheduler::global_scheduler;
 use crate::scheduler::thread_context::ThreadContext;
-use crate::syscalls::SyscallArgs;
+use crate::syscalls::syscall_args::SyscallArgs;
 use core::sync::atomic::Ordering;
-use log::{info};
+use log::info;
 
 pub fn syscall_exit(
     args: SyscallArgs,
@@ -19,7 +19,10 @@ pub fn syscall_exit(
         global_scheduler,
     );
     percpu.current_thread_ticks_left.store(1, Ordering::Release); // So scheduling 100% happens at end of syscall handling process and we never reenter exited process
-    info!("syscall exit: code: {}, thread context: {}", args.arg1, current_thread_context);
+    info!(
+        "syscall exit: code: {}, thread context: {}",
+        args.arg1, current_thread_context
+    );
 
     if result.is_err() { -1_i64 as u64 } else { 0 }
 }

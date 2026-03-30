@@ -4,7 +4,8 @@ use crate::scheduler::schedule_on_interrupt::syscall_schedule_check;
 use core::arch::{naked_asm};
 use core::ops::{Deref};
 use log::{warn};
-use crate::syscalls::{SyscallArgs, SYSCALLS_TABLE};
+use crate::syscalls::syscall_args::SyscallArgs;
+use crate::syscalls::syscalls_table::SYSCALLS_TABLE;
 
 #[unsafe(naked)]
 pub extern "C" fn syscall_entry() -> ! {

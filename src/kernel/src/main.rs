@@ -23,14 +23,14 @@ use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocato
 use crate::percpu::init::init_per_cpu;
 use crate::percpu::start_scheduling;
 use crate::process::loader::load_program_to_memory;
-use crate::process::processes_manager::{PROCESSES_MANAGER, init_processes_manager};
+use crate::process::processes_manager::{init_processes_manager, PROCESSES_MANAGER};
 use crate::render::color::Color;
 use crate::render::console_renderer::ConsoleRenderer;
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::scheduler::global_scheduler::{
-    GlobalSchedulerWrapper, global_scheduler, init_scheduler,
+    global_scheduler, init_scheduler, GlobalSchedulerWrapper,
 };
-use crate::syscall::init_syscalls;
+use syscalls::init::init_syscalls;
 use crate::uefi_runtime_services::relocate_uefi_runtime_services;
 use crate::utils::logger::init_logger;
 use crate::utils::relocate::relocate_raw_pointer;
@@ -64,7 +64,6 @@ mod process;
 mod render;
 mod scheduler;
 mod serial;
-mod syscall;
 mod uefi_runtime_services;
 mod utils;
 mod syscalls;
