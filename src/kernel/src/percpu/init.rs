@@ -27,6 +27,7 @@ pub fn init_per_cpu(
         scheduling_disabled: AtomicBool::new(true),
         current_thread_ticks_left: AtomicU64::new(0),
         current_thread_context: Mutex::new(None),
+        syscall_stack: VirtAddr::zero(),
     }));
 
     percpu.this = percpu as *mut PerCpu;

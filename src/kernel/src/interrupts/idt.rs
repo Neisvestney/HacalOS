@@ -15,6 +15,7 @@ use x86_64::structures::idt::{
 };
 use x86_64::structures::paging::Page;
 use x86_64::{PrivilegeLevel, VirtAddr};
+use crate::interrupts::handlers::int_schedule_handler::int_schedule_entry;
 use crate::percpu::PerCpu;
 use crate::process::processes_manager::PROCESSES_MANAGER;
 use crate::scheduler::global_scheduler::global_scheduler;
@@ -25,6 +26,8 @@ pub const LAPIC_TIMER_VECTOR: u8 = 0x20;
 pub const LAPIC_KEYBOARD_VECTOR: u8 = IO_APIC_BASE_OFFSET + KEYBOARD_ISA_IRQ;
 pub const LAPIC_ERROR_VECTOR: u8 = 0xFE;
 pub const LAPIC_SPURIOUS_VECTOR: u8 = 0xFF;
+
+pub const INT_SCHEDULE_VECTOR: u8 = 0x70;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = unsafe {
@@ -45,6 +48,9 @@ lazy_static! {
         idt[LAPIC_KEYBOARD_VECTOR].set_handler_fn(lapic_keyboard_handler);
         idt[LAPIC_ERROR_VECTOR].set_handler_fn(lapic_error_handler);
         idt[LAPIC_SPURIOUS_VECTOR].set_handler_fn(lapic_spurious_handler);
+
+        idt[INT_SCHEDULE_VECTOR]
+            .set_handler_addr(VirtAddr::new(int_schedule_entry as *const () as u64));
 
         idt
     };
@@ -125,7 +131,7 @@ extern "x86-interrupt" fn page_fault_handler(
         if let Some(thread_context_guard) = maybe_thread_context && let Some(thread_context) = thread_context_guard.deref() {
             {
                 let mut processes = PROCESSES_MANAGER.get().unwrap().write();
-                error!("Exception occurred in thread: {:?}", thread_context);
+                error!("Exception occurred in thread in non critical section: {:?}", thread_context);
                 let global_scheduler = global_scheduler();
                 processes.kill_process(-1, thread_context.process_id, global_scheduler).unwrap();
                 drop(thread_context_guard);

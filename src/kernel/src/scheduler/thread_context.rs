@@ -14,6 +14,8 @@ pub struct ThreadContext {
     pub thread_id: ThreadId,
     pub cpu_registries_context: CpuRegistriesContext,
     pub page_table_phys_frame: PhysFrame,
+    pub syscall_stack: VirtAddr,
+    pub status: ThreadContextStatus,
     // TODO xmm registers and etc
 }
 
@@ -24,6 +26,7 @@ impl ThreadContext {
         instruction_pointer: VirtAddr,
         stack_pointer: VirtAddr,
         page_table_phys_frame: PhysFrame,
+        syscall_stack: VirtAddr,
     ) -> Self {
         let segments = segment_selectors();
 
@@ -41,6 +44,8 @@ impl ThreadContext {
             thread_id,
             cpu_registries_context,
             page_table_phys_frame,
+            syscall_stack,
+            status: ThreadContextStatus::Running,
         }
     }
 }
@@ -57,4 +62,12 @@ impl Display for ThreadContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "ThreadContext [pid: {}, tid: {}]", self.process_id, self.thread_id)
     }
+}
+
+#[derive(Debug)]
+pub enum ThreadContextStatus {
+    Running,
+    Sleeping {
+        wake_at: u64,
+    },
 }

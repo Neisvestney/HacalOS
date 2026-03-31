@@ -18,7 +18,7 @@ use crate::interrupts::lapic::init_lapic;
 use crate::interrupts::pic::disable_pics;
 use crate::memory::heap::init_kernel_heap;
 use crate::memory::paging::{init_paging, unmap_lower_half};
-use crate::memory::stack::{allocate_stack, switch_stack_and_jump};
+use crate::memory::stack::{allocate_kernel_stack, switch_stack_and_jump};
 use crate::memory::virtual_memory_allocator::init_kernel_virtual_memory_allocator;
 use crate::percpu::init::init_per_cpu;
 use crate::percpu::start_scheduling;
@@ -131,8 +131,8 @@ fn init(boot_info: BootInfo) {
     );
     init_kernel_virtual_memory_allocator();
     init_kernel_heap().unwrap();
-    let (bsp_kernel_stack_top, _bsp_kernel_stack_protection_page) =
-        allocate_stack().expect("Cannot allocate memory for stack");
+    let (bsp_kernel_stack_top, _, _) =
+        allocate_kernel_stack().expect("Cannot allocate memory for stack");
     let (gdt, tss) = init_gdt(bsp_kernel_stack_top);
     init_idt();
     disable_pics();

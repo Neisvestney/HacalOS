@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use core::arch::asm;
 use crate::percpu::PerCpu;
 use core::sync::atomic::Ordering;
 use x86_64::VirtAddr;
@@ -15,4 +16,10 @@ pub fn schedule_on_next_tick(percpu: &PerCpu) {
 #[inline(always)]
 pub fn save_syscall_context(syscall_context: &SyscallContext, user_rsp: VirtAddr, thread_context: &mut ThreadContext) {
     thread_context.cpu_registries_context = CpuRegistriesContext::from_syscall_context(syscall_context, user_rsp)
+}
+
+pub fn int_schedule() {
+    unsafe {
+        asm!("int 0x70");
+    }
 }

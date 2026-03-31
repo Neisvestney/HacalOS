@@ -1,5 +1,5 @@
 use crate::memory::paging::page_table_mapper_from_table_pointer;
-use crate::memory::stack::stack_top_from_slice;
+use crate::memory::stack::{allocate_kernel_stack, stack_top_from_slice};
 use crate::memory::virtual_memory_allocator::VirtualMemoryAllocator;
 use crate::process::memory_map::{ProcessMemoryMapEntry, ProcessMemoryMapEntryType};
 use crate::process::thread::{Thread, ThreadId};
@@ -97,6 +97,13 @@ impl Process {
             ProcessMemoryMapEntryType::new_stack(stack_guard_page),
         ));
 
+        let (syscall_stack, _, syscall_stack_page_range) = allocate_kernel_stack().map_err(|_| SpawnThreadError::OutOfMemory)?;
+
+        self.memory_map.push(ProcessMemoryMapEntry::new(
+            syscall_stack_page_range,
+            ProcessMemoryMapEntryType::new_syscall_stack(stack_guard_page),
+        ));
+
         let (new_thread, new_thread_context) = Thread::new_with_context(
             self.next_thread_id,
             self.id,
@@ -105,6 +112,7 @@ impl Process {
             VirtAddr::from_ptr(stack_top_from_slice(stack)),
             stack_guard_page,
             self.page_table_phys_frame,
+            syscall_stack,
         );
 
         self.threads.push(new_thread);

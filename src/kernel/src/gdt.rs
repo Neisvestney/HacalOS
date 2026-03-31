@@ -1,4 +1,4 @@
-use crate::memory::stack::allocate_stack;
+use crate::memory::stack::allocate_kernel_stack;
 use alloc::boxed::Box;
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
@@ -17,12 +17,12 @@ static SEGMENTS: SelectorsWrapper = SelectorsWrapper(UnsafeCell::new(MaybeUninit
 fn build_tss(kernel_stack_top: VirtAddr) -> &'static mut TaskStateSegment {
     let tss = Box::leak(Box::new(TaskStateSegment::new()));
 
-    let (double_fault_stack, _) =
-        allocate_stack().expect("Cannot allocate stack for DOUBLE_FAULT_IST_INDEX");
+    let (double_fault_stack, _, _) =
+        allocate_kernel_stack().expect("Cannot allocate stack for DOUBLE_FAULT_IST_INDEX");
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = double_fault_stack;
 
-    let (page_fault_stack, _) =
-        allocate_stack().expect("Cannot allocate stack for PAGE_FAULT_IST_INDEX");
+    let (page_fault_stack, _, _) =
+        allocate_kernel_stack().expect("Cannot allocate stack for PAGE_FAULT_IST_INDEX");
     tss.interrupt_stack_table[PAGE_FAULT_IST_INDEX as usize] = page_fault_stack;
 
     tss.privilege_stack_table[PrivilegeLevel::Ring0 as usize] = kernel_stack_top; // No magic numbers on my watch

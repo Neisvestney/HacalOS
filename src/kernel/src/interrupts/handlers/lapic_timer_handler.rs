@@ -71,7 +71,8 @@ pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
                 x86_64::instructions::interrupts::enable();
 
                 unsafe {
-                    timer_schedule_next(stored_thread_context_guard, percpu, ctx);
+                    let percpu_mut = percpu::current_mut();
+                    timer_schedule_next(stored_thread_context_guard, percpu_mut, ctx);
                 }
             } else {
                 unsafe {

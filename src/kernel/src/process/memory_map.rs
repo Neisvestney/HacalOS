@@ -34,6 +34,9 @@ pub enum ProcessMemoryMapEntryType {
     Stack {
         guard_page: Page,
     },
+    SyscallStack {
+        guard_page: Page,
+    },
     Heap {},
 }
 
@@ -54,5 +57,9 @@ impl ProcessMemoryMapEntryType {
 
     pub fn new_stack(guard_page: Page) -> Self {
         ProcessMemoryMapEntryType::Stack { guard_page }
+    }
+
+    pub fn new_syscall_stack(guard_page: Page) -> Self {
+        ProcessMemoryMapEntryType::SyscallStack { guard_page }
     }
 }

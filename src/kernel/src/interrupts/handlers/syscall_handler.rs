@@ -16,6 +16,7 @@ pub extern "C" fn syscall_entry() -> ! {
 
         "mov rsp, gs:[{kstack}]",
 
+        "push rax", // Align stack tp 16 bytes
         "push rax",
         "push rbx",
         "push rcx",
@@ -49,6 +50,7 @@ pub extern "C" fn syscall_entry() -> ! {
         "pop rcx",
         "pop rbx",
         "pop rax",
+        "pop rax",
 
         "mov rsp, gs:[{ursp}]",
 
@@ -56,7 +58,7 @@ pub extern "C" fn syscall_entry() -> ! {
         "sysretq",
 
         handler = sym syscall_handler,
-        kstack = const PerCpu::KERNEL_STACK_TOP_STRUCT_OFFSET,
+        kstack = const PerCpu::SYSCALL_STACK_STRUCT_OFFSET,
         ursp = const PerCpu::USER_RSP_STRUCT_OFFSET,
         options()
         )
@@ -93,13 +95,14 @@ pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     if stored_thread_context.is_some() {
         let syscall_handler = SYSCALLS_TABLE.get(ctx.rax as usize);
         let ret = if let Some(handler) = syscall_handler {
-            handler(SyscallArgs::from(ctx.deref()), ctx, user_rsp, percpu, stored_thread_context.deref_mut())
+            handler(SyscallArgs::from(ctx.deref()), stored_thread_context)
         } else {
             warn!("{} called unknown syscall #{}", stored_thread_context.as_ref().unwrap(), ctx.rax);
-            0
+            (0, stored_thread_context)
         };
 
-        ctx.rax = ret;
+        ctx.rax = ret.0;
+        stored_thread_context = ret.1;
     } else {
         panic!("Syscall called with no thread context\n{:?}\n{:?}", ctx, percpu);
     }
@@ -108,7 +111,8 @@ pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     //     hint::spin_loop();
     // }
 
-    syscall_schedule_check(stored_thread_context, percpu, ctx, user_rsp);
+    let percpu_mut = unsafe { percpu::current_mut() };
+    syscall_schedule_check(stored_thread_context, percpu_mut, ctx, user_rsp);
     x86_64::instructions::interrupts::disable();
-    percpu.user_rsp = user_rsp; // In case of syscall was preempted
+    percpu_mut.user_rsp = user_rsp; // In case of syscall was preempted
 }

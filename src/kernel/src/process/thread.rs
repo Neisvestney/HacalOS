@@ -31,6 +31,7 @@ impl Thread {
         stack_pointer: VirtAddr,
         stack_guard_page: Page,
         page_table_phys_frame: PhysFrame,
+        syscall_stack: VirtAddr,
     ) -> (Self, ThreadContext) {
         let context = ThreadContext::new(
             id,
@@ -38,6 +39,7 @@ impl Thread {
             start_instruction_point,
             stack_pointer,
             page_table_phys_frame,
+            syscall_stack,
         );
 
         let thread = Thread {

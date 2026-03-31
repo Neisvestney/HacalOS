@@ -23,6 +23,7 @@ pub struct PerCpu {
     pub gdt: &'static mut GlobalDescriptorTable,
     pub tss: &'static mut TaskStateSegment,
     pub kernel_stack_top: VirtAddr,
+    pub syscall_stack: VirtAddr,
     pub user_rsp: VirtAddr,
 
     pub scheduling_disabled: AtomicBool,
@@ -33,6 +34,7 @@ pub struct PerCpu {
 
 impl PerCpu {
     pub const KERNEL_STACK_TOP_STRUCT_OFFSET: usize = offset_of!(PerCpu, kernel_stack_top);
+    pub const SYSCALL_STACK_STRUCT_OFFSET: usize = offset_of!(PerCpu, syscall_stack);
     pub const USER_RSP_STRUCT_OFFSET: usize = offset_of!(PerCpu, user_rsp);
 }
 

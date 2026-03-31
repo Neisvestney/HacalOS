@@ -9,6 +9,7 @@ use core::ops::DerefMut;
 use spin::{Once, RwLock};
 use x86_64::VirtAddr;
 use x86_64::structures::paging::{Page, Size4KiB};
+use x86_64::structures::paging::page::PageRangeInclusive;
 
 const KERNEL_STACK_PAGES_COUNT: u64 = 40;
 
@@ -23,9 +24,9 @@ pub fn stack_top_from_slice(stack_slice_pointer: *const [u8]) -> *const u8 {
     stack_top
 }
 
-pub fn allocate_stack() -> Result<(VirtAddr, Page<Size4KiB>), VirtualMemoryAllocatorError> {
+pub fn allocate_kernel_stack() -> Result<(VirtAddr, Page<Size4KiB>, PageRangeInclusive), VirtualMemoryAllocatorError> {
     let mut page_table_mapper = PAGE_TABLE_MAPPER.get().unwrap().lock();
-    let (allocated, guard_page, _) = KERNEL_VIRTUAL_MEMORY_ALLOCATOR
+    let (allocated, guard_page, page_range) = KERNEL_VIRTUAL_MEMORY_ALLOCATOR
         .get()
         .unwrap()
         .lock()
@@ -41,7 +42,7 @@ pub fn allocate_stack() -> Result<(VirtAddr, Page<Size4KiB>), VirtualMemoryAlloc
         .write();
     guard_pages.push(guard_page);
 
-    Ok((VirtAddr::from_ptr(stack_top), guard_page))
+    Ok((VirtAddr::from_ptr(stack_top), guard_page, page_range))
 }
 
 pub fn switch_stack_and_jump<F>(stack_top: VirtAddr, f: F) -> !

@@ -8,7 +8,7 @@ use std_lib::syscalls::{syscall_exit, syscall_sleep_ms};
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
 pub extern "sysv64" fn _start() -> ! {
-    for i in 0..5 {
+    for i in 0..15 {
         unsafe {
             syscall!(256);
         }
