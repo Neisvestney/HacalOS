@@ -17,6 +17,7 @@ use log::info;
 use spin::MutexGuard;
 use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
+use crate::hpet::HPET;
 use crate::utils::with_swaped_gs::with_swaped_gs;
 
 #[unsafe(naked)]
@@ -52,6 +53,10 @@ pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
         let percpu = unsafe { percpu::current() };
 
         let ticks_left = timer_schedule_tick(percpu);
+        
+       if let Some(hpet) = HPET.get().unwrap().try_read() { 
+           global_scheduler().try_lock_check_and_wake(hpet.read_current_us(), percpu);
+       }
 
         let scheduling_disabled = percpu.scheduling_disabled.load(Ordering::Acquire);
 

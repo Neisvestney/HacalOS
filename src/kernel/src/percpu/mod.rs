@@ -44,6 +44,10 @@ pub unsafe fn current() -> &'static PerCpu {
     unsafe { &*gsbase::get() }
 }
 
+pub unsafe fn current_mut() -> &'static mut PerCpu {
+    unsafe { &mut *gsbase::get() }
+}
+
 pub unsafe fn lapic() -> &'static mut LocalApic {
     unsafe { &mut *(*gsbase::get()).local_apic.get() }
 }

@@ -12,3 +12,8 @@ pub fn syscall_exit(exit_code: i32) -> ! {
         unsafe { asm!("pause") }
     }
 }
+
+pub fn syscall_sleep_ms(ms: u64) {
+    syscall!(1, ms);
+}
+

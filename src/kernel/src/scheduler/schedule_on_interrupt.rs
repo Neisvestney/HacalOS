@@ -5,6 +5,7 @@ use log::info;
 use spin::MutexGuard;
 use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
+use x86_64::VirtAddr;
 use crate::interrupts::handlers::syscall_handler::SyscallContext;
 use crate::interrupts::iret_wit_context::iret_with_context;
 use crate::memory::paging::write_cr3;
@@ -15,6 +16,7 @@ use crate::scheduler::global_scheduler::{global_scheduler, GlobalScheduler};
 use crate::scheduler::SCHEDULE_TICKS;
 use crate::scheduler::signals::ThreadSignal;
 use crate::scheduler::thread_context::ThreadContext;
+use crate::syscalls::helpers::save_syscall_context;
 
 pub fn timer_schedule_tick(percpu: &PerCpu) -> u64 {
     let prev_ticks_left = percpu
@@ -55,14 +57,14 @@ pub unsafe fn timer_schedule_next(
 }
 
 
-pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option<Box<ThreadContext>>>, percpu: &PerCpu, ctx: &mut SyscallContext) {
+pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option<Box<ThreadContext>>>, percpu: &PerCpu, ctx: &mut SyscallContext, user_rsp: VirtAddr) {
     let ticks_left = percpu.current_thread_ticks_left.load(Ordering::Acquire);
     if ticks_left <= 1 {
         let global_scheduler = global_scheduler();
 
         let next_thread_context =
             if let Some(mut previous_thread_context) = stored_thread_context_guard.take() {
-                previous_thread_context.cpu_registries_context = CpuRegistriesContext::from_syscall_context(ctx, percpu.user_rsp);
+                save_syscall_context(ctx, percpu.user_rsp, &mut previous_thread_context);
                 global_scheduler.push_thread_back_and_get_next(previous_thread_context)
             } else {
                 global_scheduler.get_next()

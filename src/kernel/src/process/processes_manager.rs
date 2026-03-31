@@ -60,6 +60,14 @@ impl ProcessesManager {
 
         Ok(())
     }
+
+    pub fn chane_thread_status(&mut self, process_id: ProcessId, thread_id: ThreadId, new_status: ThreadStatus) -> Result<(), ProcessesManagerError> {
+        let process = self.processes.get_mut(&process_id).ok_or(ProcessesManagerError::ProcessNotFound)?;
+        let thread = process.threads.iter_mut().find(|t| t.id == thread_id).ok_or(ProcessesManagerError::ThreadNotFound)?;
+        thread.status = new_status;
+
+        Ok(())
+    }
 }
 
 unsafe impl Sync for ProcessesManager {}

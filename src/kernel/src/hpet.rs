@@ -17,12 +17,13 @@ impl<'a> HpetImpl<'a> {
         HpetImpl(hpet)
     }
 
+    #[inline(always)]
     fn wait(&self, fs_per_unit: u64, unit: u64) {
         let h = &self.0;
         let period_fs = h.main_counter_tick_period() as u64;
-        let ticks_per_ms = fs_per_unit / period_fs;
+        let ticks_per_unit = fs_per_unit / period_fs;
 
-        let target = h.main_counter_value() + ticks_per_ms * unit;
+        let target = h.main_counter_value() + ticks_per_unit * unit;
         while h.main_counter_value() < target {
             core::hint::spin_loop();
         }
@@ -36,6 +37,25 @@ impl<'a> HpetImpl<'a> {
     pub fn wait_us(&self, us: u64) {
         let fs_per_us = 1_000_000_000u64;
         self.wait(fs_per_us, us);
+    }
+
+    #[inline(always)]
+    fn read_current(&self, fs_per_unit: u64) -> u64 {
+        let h = &self.0;
+        let period_fs = h.main_counter_tick_period() as u64;
+        let ticks = h.main_counter_value();
+
+        (ticks * period_fs) / fs_per_unit
+    }
+
+    pub fn read_current_us(&self) -> u64 {
+        let fs_per_us = 1_000_000_000u64;
+        self.read_current(fs_per_us)
+    }
+
+    pub fn read_current_ms(&self) -> u64 {
+        let fs_per_ms = 1_000_000_000_000u64;
+        self.read_current(fs_per_ms)
     }
 
     pub fn get_hpet(&self) -> &Hpet<'_> {

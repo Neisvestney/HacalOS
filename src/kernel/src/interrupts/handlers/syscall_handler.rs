@@ -2,7 +2,7 @@ use crate::percpu;
 use crate::percpu::PerCpu;
 use crate::scheduler::schedule_on_interrupt::syscall_schedule_check;
 use core::arch::{naked_asm};
-use core::ops::{Deref};
+use core::ops::{Deref, DerefMut};
 use log::{warn};
 use crate::syscalls::syscall_args::SyscallArgs;
 use crate::syscalls::syscalls_table::SYSCALLS_TABLE;
@@ -85,16 +85,17 @@ pub struct SyscallContext {
 
 
 pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
-    let percpu = unsafe { percpu::current() };
-    let stored_thread_context = percpu.current_thread_context.lock();
+    let percpu = unsafe { percpu::current_mut() };
+    let mut stored_thread_context = percpu.current_thread_context.lock();
+    let user_rsp = percpu.user_rsp;
     x86_64::instructions::interrupts::enable();
 
-    if let Some(current_thread_context) = stored_thread_context.deref() {
+    if stored_thread_context.is_some() {
         let syscall_handler = SYSCALLS_TABLE.get(ctx.rax as usize);
         let ret = if let Some(handler) = syscall_handler {
-            handler(SyscallArgs::from(ctx.deref()), percpu, current_thread_context)
+            handler(SyscallArgs::from(ctx.deref()), ctx, user_rsp, percpu, stored_thread_context.deref_mut())
         } else {
-            warn!("{} called unknown syscall #{}", current_thread_context, ctx.rax);
+            warn!("{} called unknown syscall #{}", stored_thread_context.as_ref().unwrap(), ctx.rax);
             0
         };
 
@@ -107,5 +108,7 @@ pub extern "C" fn syscall_handler(ctx: &mut SyscallContext) {
     //     hint::spin_loop();
     // }
 
-    syscall_schedule_check(stored_thread_context, percpu, ctx);
+    syscall_schedule_check(stored_thread_context, percpu, ctx, user_rsp);
+    x86_64::instructions::interrupts::disable();
+    percpu.user_rsp = user_rsp; // In case of syscall was preempted
 }

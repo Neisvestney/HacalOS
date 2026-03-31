@@ -11,7 +11,7 @@ use crate::acpi::acpi_handler::AcpiHandlerImpl;
 use crate::acpi::{get_acpi_tables, get_apic_info};
 use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
 use crate::gdt::init_gdt;
-use crate::hpet::init_hpet;
+use crate::hpet::{init_hpet, HPET};
 use crate::interrupts::idt::init_idt;
 use crate::interrupts::ioapic::init_ioapic_interrupts;
 use crate::interrupts::lapic::init_lapic;
@@ -251,7 +251,7 @@ fn main(
     // {
     //     let hpet = HPET.get().unwrap().read();
     //     for a in 0..3 {
-    //         println!("{}", a);
+    //         info!("current: {}", hpet.read_current_ms());
     //         hpet.wait_ms(1000);
     //     }
     // }
