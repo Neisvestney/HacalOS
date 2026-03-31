@@ -1,4 +1,4 @@
-use crate::frame_alloc::boolean_array_frame_allocator::BooleanArrayFrameAllocator;
+use crate::frame_alloc::boolean_array_frame_allocator::{BooleanArrayFrameAllocator, LowerHalfBooleanArrayFrameAllocator};
 use crate::render::frame_buffer_renderer::FrameBufferRenderer;
 use crate::utils::relocate::{relocate_frame, relocate_raw_pointer, relocate_raw_pointer_mut};
 use crate::{CONSOLE, FRAME_ALLOCATOR, PAGE_TABLE_MAPPER, VIRTUAL_TO_PHYSICAL_OFFSET};
@@ -25,10 +25,12 @@ pub fn init_paging(
 ) {
     let mut frame_allocator = FRAME_ALLOCATOR.get().unwrap().lock();
 
-    let page_table_addr = frame_allocator.request_page().unwrap();
+    let page_table_addr = frame_allocator.request_page_zeroed_lower_half().unwrap();
     let page_table = page_table_addr.start_address().as_u64() as *mut PageTable;
     let mut page_table_manager =
         unsafe { OffsetPageTable::new(&mut *page_table, VirtAddr::new(0)) };
+
+    let mut lower_half_frame_allocator = LowerHalfBooleanArrayFrameAllocator(&mut frame_allocator);
 
     for memory_map_entry in memory_map.entries() {
         for i in 0..memory_map_entry.page_count {
@@ -51,7 +53,7 @@ pub fn init_paging(
                         virtual_frame,
                         frame,
                         PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-                        frame_allocator.deref_mut(),
+                        &mut lower_half_frame_allocator,
                     )
                     .unwrap()
                     .flush();
@@ -61,7 +63,7 @@ pub fn init_paging(
                         virtual_frame_higher_half,
                         frame,
                         PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-                        frame_allocator.deref_mut(),
+                        &mut lower_half_frame_allocator,
                     )
                     .unwrap()
                     .flush();
@@ -76,7 +78,7 @@ pub fn init_paging(
                         memory_map_entry.page + i,
                         memory_map_entry.frame + i,
                         PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-                        frame_allocator.deref_mut(),
+                        &mut lower_half_frame_allocator,
                     )
                     .unwrap()
                     .flush();
@@ -98,7 +100,7 @@ pub fn init_paging(
                     virtual_frame,
                     frame,
                     PageTableFlags::PRESENT | PageTableFlags::WRITABLE,
-                    frame_allocator.deref_mut(),
+                    &mut lower_half_frame_allocator,
                 )
                 .unwrap()
                 .flush();

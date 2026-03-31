@@ -4,7 +4,7 @@ use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 use core::slice;
 use log::info;
 use uefi::table::boot::{MemoryMap, MemoryType};
-use x86_64::PhysAddr;
+use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 
 #[derive(Debug)]
@@ -137,6 +137,17 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         Ok(page)
     }
 
+    pub fn request_page_zeroed_lower_half(&mut self) -> Result<PhysFrame<Size4KiB>, ()> {
+        let page = self.request_page()?;
+
+        let ptr = VirtAddr::new(page.start_address().as_u64()).as_mut_ptr::<u8>();
+        unsafe {
+            core::ptr::write_bytes(ptr, 0, 4096);
+        }
+
+        Ok(page)
+    }
+
     pub fn free_page(&mut self, frame: PhysFrame<Size4KiB>) {
         let index = (frame.start_address().as_u64() / frame.size()) as usize;
         if self.boolean_array[index] {
@@ -190,12 +201,26 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
 
 unsafe impl<'a> FrameAllocator<Size4KiB> for BooleanArrayFrameAllocator<'a> {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        self.request_page().ok()
+        self.request_page_zeroed().ok()
     }
 }
 
 impl<'a> FrameDeallocator<Size4KiB> for BooleanArrayFrameAllocator<'a> {
     unsafe fn deallocate_frame(&mut self, frame: PhysFrame<Size4KiB>) {
         self.free_page(frame);
+    }
+}
+
+pub struct LowerHalfBooleanArrayFrameAllocator<'a, 'b>(pub &'a mut BooleanArrayFrameAllocator<'b>);
+
+unsafe impl<'a, 'b> FrameAllocator<Size4KiB> for LowerHalfBooleanArrayFrameAllocator<'a, 'b> {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        self.0.request_page_zeroed_lower_half().ok()
+    }
+}
+
+impl<'a, 'b> FrameDeallocator<Size4KiB> for LowerHalfBooleanArrayFrameAllocator<'a, 'b> {
+    unsafe fn deallocate_frame(&mut self, frame: PhysFrame<Size4KiB>) {
+        self.0.free_page(frame);
     }
 }
