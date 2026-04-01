@@ -4,8 +4,8 @@ Blazingly fast simple x64 UEFI OS
 > Environment: Linux (or WSL)  
 Tested on: WSL Ubuntu 20.04.4 LTS
 - Install all required dependencies:
-  - Apt: `sudo apt install make build-essential mtools xorriso`
-  - Or with specific versions: `sudo apt install make=4.2.1-1.2 build-essential mtools=4.0.24-1 xorriso=1.5.2-1`
+  - Apt: `sudo apt install make build-essential mtools xorriso parted`
+  - Or with specific versions: `sudo apt install make=4.2.1-1.2 build-essential mtools=4.0.24-1 xorriso=1.5.2-1 parted=3.6`
 - Install rust nightly
   - `rustup toolchain install nightly`
 - Install rust targets
