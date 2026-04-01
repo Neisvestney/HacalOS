@@ -3,6 +3,7 @@ use crate::utils::human_bytes::human_bytes;
 use crate::utils::relocate::{relocate_frame, relocate_raw_pointer_mut};
 use core::slice;
 use log::info;
+use pc_keyboard::KeyCode::M;
 use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
@@ -13,6 +14,8 @@ pub struct BooleanArrayFrameAllocator<'a> {
     point: usize,
     total_memory_bytes: u64,
     reserved_memory_bytes: u64,
+    total_physical_memory_bytes: u64,
+    reserved_physical_memory_bytes: u64,
     free_memory_bytes: u64,
     total_pages_count: u64,
     last_page_index: u64,
@@ -29,6 +32,8 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
             point: 0,
             total_memory_bytes: 0,
             reserved_memory_bytes: 0,
+            total_physical_memory_bytes: 0,
+            reserved_physical_memory_bytes: 0,
             free_memory_bytes: 0,
             total_pages_count: 0,
             last_page_index: 0,
@@ -42,6 +47,13 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         for entry in memory_map.entries() {
             self.total_memory_bytes += entry.page_count * 4096;
             self.total_pages_count += entry.page_count;
+
+            if (entry.ty.0 >= 1 && entry.ty.0 <= 7) || entry.ty == MemoryType::ACPI_RECLAIM {
+                self.total_physical_memory_bytes += entry.page_count * 4096;
+                if entry.ty != MemoryType::CONVENTIONAL {
+                    self.reserved_physical_memory_bytes += entry.page_count * 4096;
+                }
+            }
 
             let last_page_index = entry.phys_start / 4096 + entry.page_count;
             if last_page_index > self.last_page_index {
@@ -160,6 +172,14 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         self.total_memory_bytes
     }
 
+    pub fn get_total_physical_memory_bytes(&self) -> u64 {
+        self.total_physical_memory_bytes
+    }
+
+    pub fn get_reserved_physical_memory_bytes(&self) -> u64 {
+        self.reserved_physical_memory_bytes
+    }
+
     pub fn get_total_pages_count(&self) -> u64 {
         self.total_pages_count
     }
@@ -179,10 +199,13 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
     }
 
     pub fn print_stats(&self) {
-        info!("Page count: {}", self.get_total_pages_count());
         info!(
             "Total memory: {}",
             human_bytes(self.get_total_memory_bytes() as f64)
+        );
+        info!(
+            "Total physical memory: {}",
+            human_bytes(self.get_total_physical_memory_bytes() as f64)
         );
         info!(
             "Free memory: {}",
@@ -195,6 +218,14 @@ impl<'a> BooleanArrayFrameAllocator<'a> {
         info!(
             "Reserved memory: {}",
             human_bytes(self.get_reserved_memory_bytes() as f64)
+        );
+        info!(
+            "Reserved physical memory: {}",
+            human_bytes(self.get_reserved_physical_memory_bytes() as f64)
+        );
+        info!(
+            "Used by allocator buffer: {}",
+            human_bytes(self.boolean_array.buffer_size() as f64)
         );
     }
 }

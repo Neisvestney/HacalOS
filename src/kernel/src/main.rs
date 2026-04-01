@@ -37,6 +37,7 @@ use crate::utils::relocate::relocate_raw_pointer;
 use ::acpi::platform::ProcessorState;
 use ::acpi::{AcpiTables, InterruptModel};
 use alloc::string::ToString;
+use core::arch::asm;
 use bootloader_structs::BootInfo;
 use core::cell::UnsafeCell;
 use core::mem::MaybeUninit;
@@ -176,8 +177,6 @@ fn main(
     info!("Unmapping lower half");
     unmap_lower_half(&memory_map);
 
-    x86_64::instructions::interrupts::enable();
-
     println!("HacalOS v0.0.3");
 
     // unsafe {
@@ -209,14 +208,33 @@ fn main(
     let processor_info = platform_info.processor_info.unwrap();
 
     let bsp = processor_info.boot_processor;
-    if bsp.state == ProcessorState::WaitingForSipi || bsp.is_ap == false {
-        info!("BSP: APIC ID = {}", bsp.local_apic_id);
-    }
+    info!("BSP: APIC ID = {}", bsp.local_apic_id);
 
-    // AP (Application Processors) — остальные ядра
-    for ap in processor_info.application_processors.iter() {
-        info!("AP: APIC ID = {}, state = {:?}", ap.local_apic_id, ap.state);
-    }
+    // {
+    //     let lapic = unsafe {percpu::lapic()};
+    //     let hpet = HPET.get().unwrap().read();
+    //     for ap in processor_info.application_processors.iter() {
+    //         info!("AP: APIC ID = {}, state = {:?}", ap.local_apic_id, ap.state);
+    //         if ap.state == ProcessorState::WaitingForSipi {
+    //             unsafe {
+    //                 lapic.send_init_ipi(ap.processor_uid);
+    //                 while !lapic.get_ipi_delivery_status() {
+    //                     asm!("pause");
+    //                 }
+    //                 hpet.wait_ms(10);
+    //                 lapic.send_sipi(0x8, ap.processor_uid);
+    //                 while !lapic.get_ipi_delivery_status() {
+    //                     asm!("pause");
+    //                 }
+    //                 hpet.wait_us(200);
+    //                 lapic.send_sipi(0x8, ap.processor_uid);
+    //                 while !lapic.get_ipi_delivery_status() {
+    //                     asm!("pause");
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     // match platform_info.interrupt_model {
     //     InterruptModel::Apic(apic) => {
@@ -303,6 +321,8 @@ fn main(
     load("test_bin");
 
     info!("Starting scheduler");
+
+    x86_64::instructions::interrupts::enable();
     start_scheduling()
 }
 

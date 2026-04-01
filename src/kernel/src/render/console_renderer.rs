@@ -106,6 +106,12 @@ impl<'a> ConsoleRenderer<'a> {
             }
         }
     }
+    
+    pub fn move_cursor_prev_line(&mut self) {
+       if self.point.y != 0 {
+           self.point.y -= 1;
+       }
+    }
 }
 
 impl fmt::Write for ConsoleRenderer<'_> {

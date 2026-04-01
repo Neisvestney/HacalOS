@@ -8,7 +8,7 @@ use core::ops::DerefMut;
 use log::{info, warn};
 use psf2::Font;
 use spin::Mutex;
-use uefi::table::boot::MemoryMap;
+use uefi::table::boot::{MemoryMap, MemoryType};
 use x86_64::registers::control::{Cr3, Cr3Flags};
 use x86_64::structures::paging::mapper::{CleanUp, MapToError};
 use x86_64::structures::paging::page::PageRangeInclusive;
@@ -16,6 +16,7 @@ use x86_64::structures::paging::{
     Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
+use crate::utils::human_bytes::human_bytes;
 
 pub fn init_paging(
     memory_map: &MemoryMap,
@@ -32,8 +33,19 @@ pub fn init_paging(
 
     let mut lower_half_frame_allocator = LowerHalfBooleanArrayFrameAllocator(&mut frame_allocator);
 
-    for memory_map_entry in memory_map.entries() {
+    let total_count = memory_map.entries().count();
+
+    info!("Initializing paging...");
+    for (m, memory_map_entry) in memory_map.entries().enumerate() {
+        CONSOLE.get().unwrap().lock().move_cursor_prev_line();
+        info!("Initializing paging... ({}/{} entries, type {:?}, {} mb, ps: {:#x?})               ", m+1, total_count, memory_map_entry.ty, (memory_map_entry.page_count * 4096) / 1024 / 1024, memory_map_entry.phys_start);
+
+        if memory_map_entry.ty == MemoryType::RESERVED {
+            continue;
+        }
+
         for i in 0..memory_map_entry.page_count {
+
             let frame = PhysFrame::<Size4KiB>::from_start_address(PhysAddr::new(
                 memory_map_entry.phys_start,
             ))
@@ -151,6 +163,10 @@ pub fn unmap_lower_half(memory_map: &MemoryMap) {
     }
 
     for memory_map_entry in relocated_memory_map {
+        if memory_map_entry.ty == MemoryType::RESERVED {
+            continue;
+        }
+
         for i in 0..memory_map_entry.page_count {
             let virtual_frame =
                 Page::<Size4KiB>::from_start_address(VirtAddr::new(memory_map_entry.phys_start))

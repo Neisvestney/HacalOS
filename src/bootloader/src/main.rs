@@ -123,6 +123,7 @@ fn main(image_handle: Handle, mut system_table: SystemTable<Boot>) -> Status {
 
         let last_memory_entry = memory_map
             .entries()
+            .filter(|e| e.ty != MemoryType::RESERVED)
             .max_by(|a, b|
                 (a.phys_start + a.page_count * 4096).cmp(&(b.phys_start + b.page_count * 4096))
             )
