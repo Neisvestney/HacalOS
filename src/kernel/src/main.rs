@@ -330,9 +330,12 @@ fn main(
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     x86_64::instructions::interrupts::disable();
-    CONSOLE
+    let console = CONSOLE
         .get()
-        .unwrap()
+        .unwrap();
+    unsafe { console.force_unlock() };
+
+    console
         .lock()
         .set_foreground_color(Color::ERROR);
     println!("{}", _info);

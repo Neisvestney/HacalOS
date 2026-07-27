@@ -5,7 +5,7 @@ use crate::interrupts::handlers::lapic_timer_handler::lapic_timer_entry;
 use crate::interrupts::ioapic::{IO_APIC_BASE_OFFSET, KEYBOARD_ISA_IRQ};
 use crate::memory::stack::KERNEL_STACK_GUARD_PAGES;
 use crate::utils::with_swaped_gs::with_swaped_gs;
-use crate::{gdt, percpu, print};
+use crate::{gdt, percpu, print, CONSOLE};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use spin::MutexGuard;
@@ -119,11 +119,6 @@ extern "x86-interrupt" fn page_fault_handler(
 ) {
     let virt_address = Cr2::read();
 
-    error!(
-        "EXCEPTION: PAGEFAULT\n{:#?}\n{:#?}\nVirtual address: {:#x?}",
-        stack_frame, page_fault_error_code, virt_address
-    );
-
     with_swaped_gs(|| {
         let percpu = unsafe { percpu::current() };
         let maybe_thread_context = current_thread_context(percpu);
@@ -131,7 +126,7 @@ extern "x86-interrupt" fn page_fault_handler(
         if let Some(thread_context_guard) = maybe_thread_context && let Some(thread_context) = thread_context_guard.deref() {
             {
                 let mut processes = PROCESSES_MANAGER.get().unwrap().write();
-                error!("Exception occurred in thread in non critical section: {:?}", thread_context);
+                error!("Page fault occurred in thread in non critical section: {:?}\n{:#?}\n{:#?}\nVirtual address: {:#x?}", thread_context, stack_frame, page_fault_error_code, virt_address);
                 let global_scheduler = global_scheduler();
                 processes.kill_process(-1, thread_context.process_id, global_scheduler).unwrap();
                 drop(thread_context_guard);
@@ -141,6 +136,8 @@ extern "x86-interrupt" fn page_fault_handler(
         } else {
             let stack_guard_pages = KERNEL_STACK_GUARD_PAGES.get().unwrap().read();
             let virt_address = virt_address.unwrap();
+            unsafe { CONSOLE.get().unwrap().force_unlock() };
+            error!("Page fault occurred in critical section\n{:#?}\n{:#?}\nVirtual address: {:#x?}", stack_frame, page_fault_error_code, virt_address);
             if let Some(guard_page) = stack_guard_pages
                 .iter()
                 .find(|p| **p == Page::containing_address(virt_address))

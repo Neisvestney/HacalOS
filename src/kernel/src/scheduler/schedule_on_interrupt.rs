@@ -1,15 +1,18 @@
 use alloc::boxed::Box;
 use core::arch::asm;
 use core::sync::atomic::Ordering;
-use log::info;
+use log::{debug, info};
 use spin::MutexGuard;
 use volatile::VolatilePtr;
 use x86_64::instructions::hlt;
+use x86_64::instructions::interrupts::without_interrupts;
 use x86_64::VirtAddr;
 use crate::gdt::segment_selectors;
 use crate::interrupts::handlers::syscall_handler::SyscallContext;
-use crate::interrupts::iret_wit_context::iret_with_context;
+use crate::interrupts::iret_with_context::iret_with_context;
+use crate::main;
 use crate::memory::paging::write_cr3;
+use crate::memory::stack::switch_stack_and_jump;
 use crate::percpu::PerCpu;
 use crate::process::processes_manager::PROCESSES_MANAGER;
 use crate::scheduler::cpu_registries_context::CpuRegistriesContext;
@@ -17,7 +20,7 @@ use crate::scheduler::global_scheduler::{global_scheduler, GlobalScheduler};
 use crate::scheduler::SCHEDULE_TICKS;
 use crate::scheduler::signals::ThreadSignal;
 use crate::scheduler::thread_context::{ThreadContext, ThreadContextStatus};
-use crate::syscalls::helpers::save_syscall_context;
+use crate::syscalls::helpers::{int_schedule, save_syscall_context};
 
 pub fn timer_schedule_tick(percpu: &PerCpu) -> u64 {
     let prev_ticks_left = percpu
@@ -82,7 +85,11 @@ pub fn syscall_schedule_check(mut stored_thread_context_guard: MutexGuard<Option
             };
 
         if let Some(next_thread_context) = next_thread_context {
-            check_for_signals_and_switch_to_thread(percpu, next_thread_context, stored_thread_context_guard, global_scheduler)
+            x86_64::instructions::interrupts::disable();
+            switch_stack_and_jump(percpu.kernel_stack_top, move || {
+                x86_64::instructions::interrupts::enable();
+                check_for_signals_and_switch_to_thread(percpu, next_thread_context, stored_thread_context_guard, global_scheduler)
+            });
         } else {
             *stored_thread_context_guard = None;
             drop(stored_thread_context_guard);
@@ -99,14 +106,17 @@ fn check_for_signals_and_switch_to_thread(percpu: &mut PerCpu, next_thread_conte
         match next_pending_signal {
             ThreadSignal::Terminate => {
                 {
-                    *stored_thread_context_guard = None;
+                    without_interrupts(|| {
+                        *stored_thread_context_guard = None;
 
-                    let mut processes_manager = PROCESSES_MANAGER.get().unwrap().write();
-                    processes_manager.remove_thread_and_cleanup(next_thread_context.process_id, next_thread_context.thread_id, global_scheduler).unwrap();
+                        let mut processes_manager = PROCESSES_MANAGER.get().unwrap().write();
+                        processes_manager.remove_thread_and_cleanup(next_thread_context.process_id, next_thread_context.thread_id, global_scheduler).unwrap();
 
-                    drop(next_thread_context);
+                        drop(next_thread_context);
+                    });
                 }
                 drop(stored_thread_context_guard);
+                int_schedule();
                 no_tasks_hlt_loop(percpu);
             }
         }

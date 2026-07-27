@@ -1,5 +1,5 @@
 use crate::gdt::segment_selectors;
-use crate::interrupts::iret_wit_context::iret_with_context;
+use crate::interrupts::iret_with_context::iret_with_context;
 use crate::memory::paging::write_cr3;
 use crate::percpu;
 use crate::percpu::PerCpu;
@@ -50,9 +50,9 @@ pub extern "C" fn lapic_timer_entry() -> ! {
 pub unsafe extern "C" fn lapic_timer_handler(ctx: &mut CpuRegistriesContext) {
     let code_segment = ctx.stack_frame.code_segment;
     with_swaped_gs(|| {
-        let percpu = unsafe { percpu::current() };
+       let percpu = unsafe { percpu::current() };
 
-        let ticks_left = timer_schedule_tick(percpu);
+       let ticks_left = timer_schedule_tick(percpu);
         
        if let Some(hpet) = HPET.get().unwrap().try_read() { 
            global_scheduler().try_lock_check_and_wake(hpet.read_current_us(), percpu);
